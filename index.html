@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Performance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --blue1:#1E3C8C; --blue2:#3B6FD6; --blue3:#5B9BF0;
+  --green1:#1F9D6B; --green2:#3FC98A;
+  --teal1:#1E88A8; --teal2:#3FB6C9;
+  --bg:#EEF1F6; --card:#FFFFFF; --border:#E3E7EF;
+  --text:#152238; --mute:#66738C;
+  --red:#E1483F; --amber:#F2A93B;
+  --radius:16px;
+  --shadow:0 1px 2px rgba(20,30,60,.05), 0 2px 14px rgba(20,30,60,.06);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Noto Sans Thai",-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:#cbd3e1;border-radius:8px;}
+
+/* ---- Login ---- */
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 15% 20%, rgba(91,155,240,.25), transparent 45%), linear-gradient(160deg,#1E3C8C 0%, #14275c 60%, #0a1533 100%); padding:20px;}
+.login-card{width:100%;max-width:380px;background:rgba(255,255,255,.98);border-radius:20px;padding:36px 32px 30px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+.login-logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--blue2),var(--blue1));display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;margin-bottom:14px;}
+.login-card h1{font-size:20px;margin:4px 0 4px;}
+.login-card p.sub{margin:0 0 22px;color:var(--mute);font-size:13px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--mute);margin-bottom:6px;}
+.field input{width:100%;padding:11px 13px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;outline:none;background:#fbfcff;}
+.field input:focus{border-color:var(--blue2);}
+.login-btn{width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--blue2),var(--blue1));color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin-top:6px;box-shadow:0 8px 18px rgba(59,111,214,.35);}
+.login-err{color:var(--red);font-size:12.5px;margin-top:10px;display:none;}
+.login-hint{margin-top:20px;padding:10px 12px;background:#EEF3FF;border:1px dashed #c3d3f7;border-radius:10px;font-size:11.5px;color:#2a4a8a;line-height:1.5;}
+#app{display:none;}
+
+/* ---- Header ---- */
+.topbar{background:#fff;border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:40;}
+.topbar-title{font-weight:800;font-size:14px;flex:1;min-width:160px;}
+.btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--text);}
+.btn:hover{border-color:var(--blue2);color:var(--blue1);}
+.btn.primary{background:linear-gradient(135deg,var(--blue2),var(--blue1));color:#fff;border:none;box-shadow:0 4px 10px rgba(59,111,214,.3);}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--mute);}
+
+.container{max-width:1500px;margin:0 auto;padding:18px 20px 60px;}
+
+/* ---- Hero banner ---- */
+.hero{background:linear-gradient(120deg,var(--blue3) 0%, var(--blue2) 45%, var(--blue1) 100%);border-radius:18px;padding:26px 28px;color:#fff;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;box-shadow:var(--shadow);}
+.hero h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.2px;}
+.hero .evt{opacity:.85;font-size:13px;margin-top:4px;}
+.hero-right{text-align:right;}
+.hero-right .lbl{font-size:11px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;}
+.hero-right .val{font-size:15px;font-weight:700;margin-top:2px;}
+.note{font-size:11.5px;color:var(--mute);font-style:italic;margin:12px 2px 14px;}
+
+/* ---- KPI row ---- */
+.grid{display:grid;gap:14px;}
+.kpi-row{grid-template-columns:repeat(6,1fr);}
+@media(max-width:1200px){.kpi-row{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:640px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
+.kpi{padding:16px;}
+.kpi.grad-green{background:linear-gradient(160deg,#3FC98A,#1F9D6B);color:#fff;border:none;}
+.kpi.grad-teal{background:linear-gradient(160deg,#3FB6C9,#1E88A8);color:#fff;border:none;}
+.kpi.grad-blue{background:linear-gradient(160deg,#5B9BF0,#3B6FD6);color:#fff;border:none;}
+.kpi .k-label{font-size:11.5px;font-weight:700;opacity:.92;}
+.kpi .k-value{font-size:26px;font-weight:800;margin-top:6px;}
+.kpi.plain{background:#fff;}
+.kpi.plain .k-label{color:var(--mute);}
+.kpi.plain .k-value{color:var(--text);}
+.split-row{display:flex;justify-content:space-between;align-items:flex-end;margin-top:8px;}
+.split-item{text-align:left;}
+.split-item .sv{font-weight:800;font-size:15px;}
+.split-item .sl{font-size:10.5px;color:var(--mute);}
+.donut-card{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;}
+.donut-card .k-label{font-size:11.5px;font-weight:700;color:var(--mute);margin-bottom:6px;}
+
+/* ---- small tracker cards (New Post / SIM) ---- */
+.tracker-row{grid-template-columns:repeat(4,1fr);margin-top:14px;}
+@media(max-width:1000px){.tracker-row{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:560px){.tracker-row{grid-template-columns:1fr;}}
+.tracker{padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.tracker .t-top{display:flex;align-items:center;gap:10px;}
+.tracker .t-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.tracker .t-title{font-size:12px;font-weight:800;color:var(--text);}
+.tracker .t-src{font-size:9.5px;color:var(--mute);font-weight:600;}
+.tracker .t-nums{display:flex;gap:14px;flex-wrap:wrap;}
+.tracker .t-num .v{font-size:17px;font-weight:800;}
+.tracker .t-num .l{font-size:9.5px;color:var(--mute);text-transform:uppercase;font-weight:700;}
+.tracker .t-pct-row{display:flex;justify-content:space-between;align-items:center;}
+.tracker .t-pct{font-size:15px;font-weight:800;padding:4px 10px;border-radius:8px;}
+
+/* ---- Trend section ---- */
+.section-title{font-weight:800;font-size:14px;margin:26px 2px 12px;display:flex;align-items:center;gap:8px;}
+.legend-row{display:flex;gap:14px;font-size:11.5px;color:var(--mute);margin-bottom:6px;}
+.legend-row span{display:flex;align-items:center;gap:5px;}
+.legend-dot{width:10px;height:10px;border-radius:3px;}
+.trend-grid{grid-template-columns:1fr 1fr;}
+@media(max-width:900px){.trend-grid{grid-template-columns:1fr;}}
+.trend-card{padding:16px 18px;}
+.trend-card h4{margin:0 0 4px;font-size:12.5px;text-decoration:underline;text-align:center;}
+.chart-wrap{position:relative;height:230px;margin-top:8px;}
+.chart-wrap canvas{width:100% !important;height:100% !important;}
+
+/* ---- By brand & model ---- */
+.cat-grid{grid-template-columns:1fr 1fr;margin-top:6px;}
+@media(max-width:1050px){.cat-grid{grid-template-columns:1fr;}}
+.cat-card{padding:0;overflow:hidden;}
+.cat-head{padding:10px 16px;font-weight:800;font-size:13px;color:#fff;}
+.cat-head.device{background:#3B4A63;}
+.cat-head.accessories{background:#1E9E7A;}
+.cat-body{padding:14px 16px 18px;}
+.cat-sub{font-size:11.5px;font-weight:700;color:var(--mute);margin:4px 0 8px;}
+.portion-bar{display:flex;height:34px;border-radius:8px;overflow:hidden;margin-bottom:6px;}
+.portion-seg{display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;padding:0 4px;}
+.portion-legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:10.5px;color:var(--mute);margin-bottom:14px;}
+.portion-legend span{display:flex;align-items:center;gap:4px;}
+.data-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;}
+.data-table th{background:#eef2f8;color:var(--mute);font-weight:700;padding:5px 6px;text-align:right;white-space:nowrap;font-size:9.5px;text-transform:uppercase;}
+.data-table th:first-child{text-align:left;}
+.data-table td{padding:5px 6px;text-align:right;border-bottom:1px solid #F1F3F8;white-space:nowrap;}
+.data-table td:first-child{text-align:left;font-weight:600;}
+.data-table tr.total-row td{font-weight:800;background:#F7F9FC;border-top:1.5px solid #dbe1ec;}
+.data-table .grp-rev{background:#F5F9FF;}
+.data-table .grp-unit{background:#F3FBF7;}
+.table-scroll{overflow-x:auto;}
+.table-title{font-weight:800;font-size:12px;margin:14px 0 6px;}
+.footer-note{text-align:center;color:var(--mute);font-size:11px;margin-top:30px;}
+
+/* ---- Modal (reuse pattern) ---- */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,15,30,.5);z-index:100;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto;}
+.modal{background:#fff;border-radius:18px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:92vh;display:flex;flex-direction:column;}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);}
+.modal-head h2{margin:0;font-size:16px;}
+.modal-head button{border:none;background:#f2f4f8;width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:15px;}
+.modal-body{padding:18px 22px;overflow:auto;}
+.modal-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+@media(max-width:560px){.form-grid{grid-template-columns:1fr;}}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg label{font-size:11.5px;font-weight:700;color:var(--mute);}
+.fg input{padding:9px 10px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;}
+.fg input:focus{outline:none;border-color:var(--blue2);}
+.subhead{font-size:12px;font-weight:800;color:var(--blue1);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.4px;}
+.subhead:first-child{margin-top:0;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--blue1);color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:200;opacity:0;pointer-events:none;transition:.25s;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+.empty-hint{font-size:12px;color:var(--mute);padding:10px 0;}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">📊</div>
+    <h1>Sales Performance Dashboard</h1>
+    <p class="sub">Device · Accessories · SIM · New Post</p>
+    <form id="loginForm">
+      <div class="field"><label>Username</label><input type="text" id="loginUser" autocomplete="username" required></div>
+      <div class="field"><label>Password</label><input type="password" id="loginPass" autocomplete="current-password" required></div>
+      <button type="submit" class="login-btn">เข้าสู่ระบบ</button>
+      <div class="login-err" id="loginErr">Username หรือ Password ไม่ถูกต้อง</div>
+    </form>
+    <div class="login-hint" id="loginHint">Demo account · Username: <b>manager</b> · Password: <b>trang2026</b></div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-title">📊 Sales Performance Dashboard</div>
+    <button class="btn" id="btnDataEntry">📝 Data Entry</button>
+    <button class="btn" id="btnRefresh">🔄 Refresh Data</button>
+    <button class="btn" id="btnExportExcel">⬇ Export Excel</button>
+    <button class="btn primary" id="btnExportPptx" style="background:linear-gradient(135deg,#1E3C8C,#0a1533);">⬇ Export PowerPoint</button>
+    <button class="btn" id="btnSettings">⚙️ Settings</button>
+    <button class="btn ghost" id="btnLogout">Logout</button>
+  </div>
+
+  <div class="container">
+    <!-- HERO -->
+    <div class="hero">
+      <div>
+        <h1 id="heroTitle">Sales Performance</h1>
+        <div class="evt" id="heroSub">Month to Date</div>
+      </div>
+      <div class="hero-right">
+        <div class="lbl">Overall</div>
+        <div class="val" id="heroDateRange">-</div>
+        <div class="lbl" style="margin-top:6px;">As of</div>
+        <div class="val" id="heroAsOf">-</div>
+      </div>
+    </div>
+    <div class="note">หมายเหตุ: Revenue คำนวณจากราคาหลังหักส่วนลด (Source: GRAND_TOTAL) · ข้อมูลสะสมแบบ Month-to-Date จากไฟล์ที่ Import เข้าระบบ</div>
+
+    <!-- KPI ROW -->
+    <div class="grid kpi-row" id="kpiRow"></div>
+
+    <!-- NEW POST / SIM TRACKERS -->
+    <div class="grid tracker-row" id="trackerRow"></div>
+
+    <!-- DAILY TREND -->
+    <div class="section-title">📈 Daily Sales Trend (Last 7 Days)</div>
+    <div class="legend-row">
+      <span><i class="legend-dot" style="background:#1E9E7A"></i>Accessories</span>
+      <span><i class="legend-dot" style="background:#3B6FD6"></i>Device</span>
+    </div>
+    <div class="grid trend-grid">
+      <div class="card trend-card">
+        <h4>Rev. (MB)</h4>
+        <div class="chart-wrap"><canvas id="chartRevTrend"></canvas></div>
+      </div>
+      <div class="card trend-card">
+        <h4>Units</h4>
+        <div class="chart-wrap"><canvas id="chartUnitTrend"></canvas></div>
+      </div>
+    </div>
+
+    <!-- BY BRAND & MODEL -->
+    <div class="section-title">🏷️ By Brand &amp; Model (Month to Date)</div>
+    <div class="grid cat-grid">
+      <div class="card cat-card">
+        <div class="cat-head device">Device</div>
+        <div class="cat-body" id="deviceBody"></div>
+      </div>
+      <div class="card cat-card">
+        <div class="cat-head accessories">Accessories</div>
+        <div class="cat-body" id="accessoriesBody"></div>
+      </div>
+    </div>
+
+    <div class="footer-note">Sales Performance Dashboard · Data cumulates from daily POS imports · Generated for internal review</div>
+  </div>
+</div>
+
+<!-- ============ DATA ENTRY MODAL ============ -->
+<div class="modal-overlay" id="entryModal">
+  <div class="modal">
+    <div class="modal-head"><h2>📝 บันทึกข้อมูลประจำวัน — New Post / FBB / Care Plus</h2><button id="closeEntry">✕</button></div>
+    <div class="modal-body">
+      <div class="fg" style="margin-bottom:14px;"><label>วันที่</label><input type="date" id="entryDate"></div>
+      <div class="form-grid">
+        <div class="fg"><label>📝 New Post (จำนวน)</label><input type="number" id="f_newpost"></div>
+        <div class="fg"><label>📶 FBB (จำนวน)</label><input type="number" id="f_fbb"></div>
+        <div class="fg"><label>🛡️ Care Plus (จำนวน)</label><input type="number" id="f_careplus"></div>
+      </div>
+      <div class="empty-hint" style="margin-top:10px;">หมายเหตุ: Device / Accessories / SIM ดึงจาก POS Import อัตโนมัติ ไม่ต้องกรอกในนี้ — ส่วนนี้ใช้สำหรับ New Post, FBB, Care Plus ที่กรอกเองเท่านั้น</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="cancelEntry" type="button">ยกเลิก</button>
+      <button class="btn primary" id="saveEntry" type="button">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SETTINGS MODAL ============ -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <div class="modal-head"><h2>⚙️ Settings</h2><button id="closeSettings">✕</button></div>
+    <div class="modal-body">
+      <div class="subhead">Display</div>
+      <div class="form-grid">
+        <div class="fg" style="grid-column:1/-1;"><label>Event / Location Name</label><input type="text" id="s_eventName" placeholder="Sales Performance : Central Phuket Festival"></div>
+      </div>
+      <div class="subhead">Monthly Target</div>
+      <div class="form-grid">
+        <div class="fg"><label>Revenue Monthly Target (฿)</label><input type="number" id="s_revenueMonthlyTarget"></div>
+        <div class="fg"><label>SIM Monthly Target (Qty)</label><input type="number" id="s_simMonthlyTarget"></div>
+        <div class="fg"><label>New Post Monthly Target (Qty)</label><input type="number" id="s_newpostMonthlyTarget"></div>
+        <div class="fg"><label>FBB Monthly Target (Qty)</label><input type="number" id="s_fbbMonthlyTarget"></div>
+        <div class="fg"><label>Care Plus Monthly Target (Qty)</label><input type="number" id="s_careplusMonthlyTarget"></div>
+      </div>
+      <div class="subhead">เปลี่ยนรหัสผ่านเข้าใช้งาน</div>
+      <div class="form-grid">
+        <div class="fg"><label>Username ใหม่</label><input type="text" id="s_user"></div>
+        <div class="fg"><label>Password ใหม่</label><input type="text" id="s_pass"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="cancelSettings" type="button">ยกเลิก</button>
+      <button class="btn primary" id="saveSettings" type="button">💾 บันทึก Settings</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   SALES PERFORMANCE DASHBOARD — Device / Accessories / SIM / New Post
+   Data source: Google Apps Script + Google Sheet (see Code2.gs)
+   ============================================================ */
+
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwkN0R77rw7dog2h91SIBPZQiMTBToPHn_38VQr77xeNhiOiIo1Xg1f_JZVzB22X63S/exec'; // <-- paste your deployed Apps Script Web App URL here (ends in /exec)
+let BACKEND_MODE = 'memory';
+if (GAS_URL && GAS_URL.trim()) BACKEND_MODE = 'gas';
+
+const BRAND_COLORS = ['#3B6FD6','#1E9E7A','#F2A93B','#9B59B6','#E1483F','#1ABC9C','#34495E','#E67E22','#2E86C1','#8E44AD'];
+let CONFIG = { revenueMonthlyTarget:0, simMonthlyTarget:0, newpostMonthlyTarget:0, fbbMonthlyTarget:0, careplusMonthlyTarget:0, eventName:'Sales Performance Dashboard' };
+let CREDS = {user:'manager', pass:'trang2026'};
+let AGG_ROWS = []; // flat rows from DailyAgg: {date,bucket,brand,model,qty,rev}
+let MANUAL_ROWS = []; // flat rows from ManualEntries: {date,newpost,fbb,careplus}
+let charts = {};
+
+/* ---------- JSONP helper ---------- */
+function jsonp(url, params, timeoutMs){
+  timeoutMs = timeoutMs || 20000;
+  return new Promise((resolve, reject)=>{
+    const cbName = 'jsonp_cb_' + Math.random().toString(36).slice(2);
+    const qs = Object.keys(params||{}).map(k=> encodeURIComponent(k)+'='+encodeURIComponent(params[k])).join('&');
+    const sep = url.indexOf('?')>=0 ? '&' : '?';
+    const full = url + sep + qs + (qs?'&':'') + 'callback=' + cbName;
+    let done = false;
+    function cleanup(){ delete window[cbName]; if(script.parentNode) script.parentNode.removeChild(script); clearTimeout(timer); }
+    window[cbName] = (data)=>{ if(done) return; done=true; cleanup(); resolve(data); };
+    const script = document.createElement('script');
+    script.src = full;
+    script.onerror = ()=>{ if(done) return; done=true; cleanup(); reject(new Error('เชื่อมต่อ Backend ไม่สำเร็จ')); };
+    const timer = setTimeout(()=>{ if(done) return; done=true; cleanup(); reject(new Error('Backend หมดเวลาตอบสนอง')); }, timeoutMs);
+    document.body.appendChild(script);
+  });
+}
+async function gasCall(action, params){
+  const data = await jsonp(GAS_URL, Object.assign({action}, params||{}));
+  if(data && data.error) throw new Error(data.error);
+  return data;
+}
+
+/* ---------- utils ---------- */
+function money(n){ return '\u0E3F' + Math.round(n||0).toLocaleString('en-US'); }
+function num(n){ return Math.round(n||0).toLocaleString('en-US'); }
+function mb(n){ return (n/1000000).toFixed(2); }
+function fmtDate(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function addDays(dateStr,n){ const d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return fmtDate(d); }
+function shortDate(dateStr){ const d = new Date(dateStr+'T00:00:00'); return d.getDate()+'-'+d.toLocaleDateString('en-GB',{month:'short'}); }
+function trafficColor(pct){ return pct>=100?'#2f9e44': pct>=90?'#F2A93B':'#E1483F'; }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* ---------- data loading ---------- */
+async function loadConfig(){
+  if(BACKEND_MODE==='gas'){
+    try{
+      const res = await gasCall('getConfig');
+      CONFIG = Object.assign({revenueMonthlyTarget:0, simMonthlyTarget:0, newpostMonthlyTarget:0, fbbMonthlyTarget:0, careplusMonthlyTarget:0, eventName:'Sales Performance Dashboard'}, res.config||{});
+    }catch(err){ showToast('โหลด Config ไม่สำเร็จ: '+err.message); }
+  }
+}
+async function loadAggData(){
+  if(BACKEND_MODE==='gas'){
+    try{
+      const res = await gasCall('getDailyAgg');
+      AGG_ROWS = res.rows||[];
+    }catch(err){ showToast('โหลดข้อมูลไม่สำเร็จ: '+err.message); AGG_ROWS=[]; }
+  }
+}
+async function loadManualEntries(){
+  if(BACKEND_MODE==='gas'){
+    try{
+      const res = await gasCall('getManualEntries');
+      MANUAL_ROWS = res.rows||[];
+    }catch(err){ showToast('โหลดข้อมูล New Post/FBB/Care Plus ไม่สำเร็จ: '+err.message); MANUAL_ROWS=[]; }
+  }
+}
+
+/* ---------- aggregation helpers ---------- */
+function currentMonthPrefix(){ const now=new Date(); return fmtDate(now).slice(0,7); }
+function rowsThisMonth(){ const pfx = currentMonthPrefix(); return AGG_ROWS.filter(r=>r.date && r.date.slice(0,7)===pfx); }
+function manualRowsThisMonth(){ const pfx = currentMonthPrefix(); return MANUAL_ROWS.filter(r=>r.date && r.date.slice(0,7)===pfx); }
+function sumManual(){ return manualRowsThisMonth().reduce((a,r)=>({newpost:a.newpost+(r.newpost||0), fbb:a.fbb+(r.fbb||0), careplus:a.careplus+(r.careplus||0)}), {newpost:0,fbb:0,careplus:0}); }
+function sumBucket(rows, bucket){ return rows.filter(r=>r.bucket===bucket).reduce((a,r)=>({qty:a.qty+(r.qty||0), rev:a.rev+(r.rev||0)}), {qty:0,rev:0}); }
+function last7Dates(){
+  const dates=[]; let d=fmtDate(new Date());
+  for(let i=0;i<7;i++){ dates.unshift(d); d=addDays(d,-1); }
+  return dates;
+}
+function byBrandModel(rows, bucket, groupKeyFn){
+  const map = {};
+  rows.filter(r=>r.bucket===bucket).forEach(r=>{
+    const key = groupKeyFn(r);
+    if(!map[key]) map[key] = {key, brand:r.brand, model:r.model, qty:0, rev:0, byDay:{}};
+    map[key].qty += r.qty||0;
+    map[key].rev += r.rev||0;
+    if(!map[key].byDay[r.date]) map[key].byDay[r.date] = {qty:0,rev:0};
+    map[key].byDay[r.date].qty += r.qty||0;
+    map[key].byDay[r.date].rev += r.rev||0;
+  });
+  return Object.values(map).sort((a,b)=>b.rev-a.rev);
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+async function renderAll(){
+  const rows = rowsThisMonth();
+  const deviceTotal = sumBucket(rows,'device');
+  const accTotal = sumBucket(rows,'accessories');
+  const simTotal = sumBucket(rows,'sim');
+  const manualTotal = sumManual();
+  const grandRev = deviceTotal.rev + accTotal.rev;
+  const grandUnit = deviceTotal.qty + accTotal.qty;
+
+  renderHero();
+  renderKPIs(deviceTotal, accTotal, grandRev, grandUnit);
+  renderTrackers(simTotal, manualTotal);
+  renderTrend(rows);
+  renderCategory('deviceBody', rows, 'device', '#3B6FD6');
+  renderCategory('accessoriesBody', rows, 'accessories', '#1E9E7A');
+}
+
+function renderHero(){
+  document.getElementById('heroTitle').textContent = CONFIG.eventName || 'Sales Performance Dashboard';
+  const now = new Date();
+  const monthLabel = now.toLocaleDateString('en-GB',{month:'long', year:'numeric'});
+  document.getElementById('heroSub').textContent = 'Month to Date · ' + monthLabel;
+  const first = fmtDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  document.getElementById('heroDateRange').textContent = shortDate(first)+' – '+shortDate(fmtDate(now));
+  document.getElementById('heroAsOf').textContent = now.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+
+function renderKPIs(deviceTotal, accTotal, grandRev, grandUnit){
+  const target = CONFIG.revenueMonthlyTarget||0;
+  const achPct = target? (grandRev/target*100):0;
+  const devRevPct = grandRev? (deviceTotal.rev/grandRev*100):0;
+  const accRevPct = grandRev? (accTotal.rev/grandRev*100):0;
+  const devUnitPct = grandUnit? (deviceTotal.qty/grandUnit*100):0;
+  const accUnitPct = grandUnit? (accTotal.qty/grandUnit*100):0;
+
+  const wrap = document.getElementById('kpiRow');
+  wrap.innerHTML = `
+    <div class="card kpi grad-green">
+      <div class="k-label">TARGET (MB)</div>
+      <div class="k-value">${mb(target)}</div>
+    </div>
+    <div class="card kpi grad-teal">
+      <div class="k-label">REV. (MB) incl. Device &amp; Accessories</div>
+      <div class="k-value">${mb(grandRev)}</div>
+    </div>
+    <div class="card kpi plain">
+      <div class="k-label">Rev. %</div>
+      <div class="split-row">
+        <div class="split-item"><div class="sv" style="color:#3B6FD6">${devRevPct.toFixed(0)}%</div><div class="sl">DEVICE</div></div>
+        <div class="split-item"><div class="sv" style="color:#1E9E7A">${accRevPct.toFixed(0)}%</div><div class="sl">Accessories</div></div>
+      </div>
+    </div>
+    <div class="card kpi donut-card">
+      <div class="k-label">%Achieve Target_Rev.</div>
+      <div class="chart-wrap" style="height:110px;width:110px;"><canvas id="chartAchieve"></canvas></div>
+    </div>
+    <div class="card kpi grad-blue">
+      <div class="k-label">UNITS incl. Device &amp; Accessories</div>
+      <div class="k-value">${num(grandUnit)}</div>
+    </div>
+    <div class="card kpi plain">
+      <div class="k-label">Units.%</div>
+      <div class="split-row">
+        <div class="split-item"><div class="sv" style="color:#3B6FD6">${num(deviceTotal.qty)}</div><div class="sl">DEVICE ${devUnitPct.toFixed(0)}%</div></div>
+        <div class="split-item"><div class="sv" style="color:#1E9E7A">${num(accTotal.qty)}</div><div class="sl">Accessories ${accUnitPct.toFixed(0)}%</div></div>
+      </div>
+    </div>
+  `;
+  const ctx = document.getElementById('chartAchieve').getContext('2d');
+  if(charts.achieve) charts.achieve.destroy();
+  const clamped = Math.min(100, achPct);
+  charts.achieve = new Chart(ctx, {
+    type:'doughnut',
+    data:{ datasets:[{ data:[clamped, 100-clamped], backgroundColor:['#8CC63F','#E4E8F0'], borderWidth:0 }]},
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'70%', plugins:{legend:{display:false}, tooltip:{enabled:false}} },
+    plugins:[{
+      id:'centerTxt',
+      afterDraw(chart){
+        const {ctx,chartArea:{width,height,left,top}} = chart;
+        ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font='800 20px Segoe UI'; ctx.fillStyle='#152238';
+        ctx.fillText(achPct.toFixed(0)+'%', left+width/2, top+height/2);
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+function renderTrackers(simTotal, manualTotal){
+  const trackers = [
+    {icon:'📶', title:'SIM (Prepaid/Postpaid)', src:'Auto จาก POS Import', color:'#1E88A8', actual:simTotal.qty, target:CONFIG.simMonthlyTarget},
+    {icon:'📝', title:'New Post (เลขใหม่)', src:'กรอกเอง (Data Entry)', color:'#9B59B6', actual:manualTotal.newpost, target:CONFIG.newpostMonthlyTarget},
+    {icon:'📡', title:'FBB', src:'กรอกเอง (Data Entry)', color:'#E67E22', actual:manualTotal.fbb, target:CONFIG.fbbMonthlyTarget},
+    {icon:'🛡️', title:'Care Plus', src:'กรอกเอง (Data Entry)', color:'#2E86C1', actual:manualTotal.careplus, target:CONFIG.careplusMonthlyTarget},
+  ];
+  document.getElementById('trackerRow').innerHTML = trackers.map(t=>{
+    const pct = t.target? (t.actual/t.target*100):0;
+    const color = trafficColor(pct);
+    return `<div class="card tracker">
+      <div class="t-top">
+        <div class="t-icon" style="background:${t.color}22;color:${t.color};">${t.icon}</div>
+        <div>
+          <div class="t-title">${t.title}</div>
+          <div class="t-src">${t.src}</div>
+        </div>
+      </div>
+      <div class="t-nums">
+        <div class="t-num"><div class="v">${num(t.actual)}</div><div class="l">Actual (MTD)</div></div>
+        <div class="t-num"><div class="v">${num(t.target)}</div><div class="l">Target (Month)</div></div>
+      </div>
+      <div class="t-pct-row">
+        <span style="font-size:10px;color:var(--mute);font-weight:700;">%Ach</span>
+        <div class="t-pct" style="background:${color}22;color:${color};">${pct.toFixed(0)}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTrend(rows){
+  const dates = last7Dates();
+  const labels = dates.map(shortDate);
+  const devRev=[], accRev=[], devUnit=[], accUnit=[];
+  dates.forEach(d=>{
+    const dayRows = rows.filter(r=>r.date===d);
+    devRev.push(sumBucket(dayRows,'device').rev/1000000);
+    accRev.push(sumBucket(dayRows,'accessories').rev/1000000);
+    devUnit.push(sumBucket(dayRows,'device').qty);
+    accUnit.push(sumBucket(dayRows,'accessories').qty);
+  });
+  drawStackedBar('chartRevTrend', labels, [
+    {label:'Accessories', data:accRev, backgroundColor:'#1E9E7A'},
+    {label:'Device', data:devRev, backgroundColor:'#3B6FD6'},
+  ], (v)=>v.toFixed(2));
+  drawStackedBar('chartUnitTrend', labels, [
+    {label:'Accessories', data:accUnit, backgroundColor:'#1E9E7A'},
+    {label:'Device', data:devUnit, backgroundColor:'#3B6FD6'},
+  ], (v)=>num(v));
+}
+function drawStackedBar(canvasId, labels, datasets, fmt){
+  const el = document.getElementById(canvasId);
+  if(!el) return;
+  const ctx = el.getContext('2d');
+  if(charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:(c)=> c.dataset.label+': '+fmt(c.raw)}} },
+      scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, grid:{color:'#F0F2F8'}, ticks:{callback:(v)=>fmt(v)}} }
+    }
+  });
+}
+
+function renderCategory(elId, rows, bucket, color){
+  const el = document.getElementById(elId);
+  const brandRows = byBrandModel(rows, bucket, r=>r.brand);
+  const modelRows = byBrandModel(rows, bucket, r=>r.brand+'|'+r.model).slice().sort((a,b)=>b.rev-a.rev).slice(0,10);
+  const totalRev = brandRows.reduce((a,r)=>a+r.rev,0);
+  const totalQty = brandRows.reduce((a,r)=>a+r.qty,0);
+
+  if(brandRows.length===0){
+    el.innerHTML = `<div class="empty-hint">ยังไม่มีข้อมูลเดือนนี้ — กด "Process Today's Import" ใน Google Sheet แล้ว Refresh Data</div>`;
+    return;
+  }
+
+  // Portion % Rev bar (top brands + OTHER)
+  const topN = 5;
+  const top = brandRows.slice(0, topN);
+  const rest = brandRows.slice(topN);
+  const restRev = rest.reduce((a,r)=>a+r.rev,0);
+  const segs = top.map((b,i)=>({name:b.brand, pct: totalRev? b.rev/totalRev*100:0, color:BRAND_COLORS[i%BRAND_COLORS.length]}));
+  if(rest.length>0) segs.push({name:'OTHER ('+rest.slice(0,3).map(r=>r.brand).join(',')+(rest.length>3?',...':'')+')', pct: totalRev? restRev/totalRev*100:0, color:'#8E44AD'});
+
+  const dates7 = last7Dates();
+
+  function buildTable(rowsData, isModel){
+    const head = `<thead><tr><th>${isModel?'Brand | Model':'Brand'}</th>${dates7.map(d=>`<th>${shortDate(d)}</th>`).join('')}<th>Total</th></tr></thead>`;
+    const bodyRev = rowsData.map(r=>{
+      const cells = dates7.map(d=> `<td>${(r.byDay[d]&&r.byDay[d].rev)? num(r.byDay[d].rev):''}</td>`).join('');
+      return `<tr><td>${isModel? r.brand+' | '+r.model : r.brand}</td>${cells}<td><b>${num(r.rev)}</b></td></tr>`;
+    }).join('');
+    const totRevByDay = dates7.map(d=> rowsData.reduce((a,r)=> a+((r.byDay[d]&&r.byDay[d].rev)||0),0));
+    const totRow = `<tr class="total-row"><td>Total</td>${totRevByDay.map(v=>`<td>${v?num(v):''}</td>`).join('')}<td>${num(rowsData.reduce((a,r)=>a+r.rev,0))}</td></tr>`;
+    const revTable = `<div class="table-scroll"><table class="data-table">${head}<tbody>${bodyRev}${totRow}</tbody></table></div>`;
+
+    const bodyUnit = rowsData.map(r=>{
+      const cells = dates7.map(d=> `<td>${(r.byDay[d]&&r.byDay[d].qty)? num(r.byDay[d].qty):''}</td>`).join('');
+      return `<tr><td>${isModel? r.brand+' | '+r.model : r.brand}</td>${cells}<td><b>${num(r.qty)}</b></td></tr>`;
+    }).join('');
+    const totUnitByDay = dates7.map(d=> rowsData.reduce((a,r)=> a+((r.byDay[d]&&r.byDay[d].qty)||0),0));
+    const totRowU = `<tr class="total-row"><td>Total</td>${totUnitByDay.map(v=>`<td>${v?num(v):''}</td>`).join('')}<td>${num(rowsData.reduce((a,r)=>a+r.qty,0))}</td></tr>`;
+    const unitTable = `<div class="table-scroll"><table class="data-table">${head}<tbody>${bodyUnit}${totRowU}</tbody></table></div>`;
+    return {revTable, unitTable};
+  }
+
+  const brandTables = buildTable(brandRows, false);
+  const modelTables = buildTable(modelRows, true);
+
+  el.innerHTML = `
+    <div class="cat-sub">Portion % Rev</div>
+    <div class="portion-bar">${segs.map(s=>`<div class="portion-seg" style="width:${s.pct}%;background:${s.color};" title="${s.name} ${s.pct.toFixed(0)}%">${s.pct>=8? s.pct.toFixed(0)+'%':''}</div>`).join('')}</div>
+    <div class="portion-legend">${segs.map(s=>`<span><i class="legend-dot" style="background:${s.color}"></i>${s.name} ${s.pct.toFixed(0)}%</span>`).join('')}</div>
+    <div class="table-title">By Brand — Rev (THB)</div>
+    ${brandTables.revTable}
+    <div class="table-title">By Brand — Units</div>
+    ${brandTables.unitTable}
+    <div class="table-title">Top 10 Model — Rev (THB)</div>
+    ${modelTables.revTable}
+    <div class="table-title">Top 10 Model — Units</div>
+    ${modelTables.unitTable}
+  `;
+}
+
+/* ============================================================
+   EXCEL EXPORT
+   ============================================================ */
+function exportExcel(){
+  const rows = rowsThisMonth();
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Daily Aggregate (MTD)');
+  ['device','accessories'].forEach(bucket=>{
+    const brandRows = byBrandModel(rows, bucket, r=>r.brand).map(r=>({Brand:r.brand, Qty:r.qty, Revenue:r.rev}));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(brandRows), bucket+' by Brand');
+    const modelRows = byBrandModel(rows, bucket, r=>r.brand+'|'+r.model).sort((a,b)=>b.rev-a.rev).map(r=>({Brand:r.brand, Model:r.model, Qty:r.qty, Revenue:r.rev}));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(modelRows), bucket+' by Model');
+  });
+  const simTotal = sumBucket(rows,'sim'), manualTotal = sumManual();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(manualRowsThisMonth()), 'New Post-FBB-CarePlus (Daily)');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    {Metric:'SIM Actual (MTD)', Value:simTotal.qty, Target:CONFIG.simMonthlyTarget},
+    {Metric:'New Post Actual (MTD)', Value:manualTotal.newpost, Target:CONFIG.newpostMonthlyTarget},
+    {Metric:'FBB Actual (MTD)', Value:manualTotal.fbb, Target:CONFIG.fbbMonthlyTarget},
+    {Metric:'Care Plus Actual (MTD)', Value:manualTotal.careplus, Target:CONFIG.careplusMonthlyTarget},
+    {Metric:'Revenue Monthly Target', Value:CONFIG.revenueMonthlyTarget},
+  ]), 'Targets');
+  XLSX.writeFile(wb, `Sales_Performance_${fmtDate(new Date())}.xlsx`);
+  showToast('Export Excel เรียบร้อยแล้ว');
+}
+
+/* ============================================================
+   POWERPOINT EXPORT (hand-rolled OOXML via JSZip)
+   ============================================================ */
+const PPTX_EMU_PER_IN = 914400;
+const pIn = v => Math.round(v*PPTX_EMU_PER_IN);
+const pPt = v => Math.round(v*12700);
+const pSz = v => Math.round(v*100);
+function pEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
+
+function pParaXml(line){
+  const align = line.align==='ctr'?'ctr':line.align==='r'?'r':'l';
+  const sz = pSz(line.size||12);
+  const bold = line.bold? ' b="1"':'';
+  const color = line.color||'1C2620';
+  const face = line.fontFace||'Calibri';
+  const spc = line.charSpacing? ` spc="${Math.round(line.charSpacing*100)}"`:'';
+  if(line.text===''||line.text==null) return `<a:p><a:pPr algn="${align}"/><a:endParaRPr lang="en-US" sz="${sz}"/></a:p>`;
+  return `<a:p><a:pPr algn="${align}"/><a:r><a:rPr lang="en-US" sz="${sz}"${bold}${spc} dirty="0"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="${face}"/></a:rPr><a:t>${pEsc(line.text)}</a:t></a:r></a:p>`;
+}
+function pShapeXml(shape, id){
+  const x=pIn(shape.x), y=pIn(shape.y), w=pIn(shape.w), h=pIn(shape.h);
+  let prst='rect', avLst='<a:avLst/>';
+  if(shape.kind==='oval') prst='ellipse';
+  if(shape.kind==='roundRect'){ prst='roundRect'; const adj=shape.radius!=null?shape.radius:6000; avLst=`<a:avLst><a:gd name="adj" fmla="val ${adj}"/></a:avLst>`; }
+  const fillXml = shape.fill? `<a:solidFill><a:srgbClr val="${shape.fill}"/></a:solidFill>` : '<a:noFill/>';
+  let lnXml;
+  if(shape.lineColor){
+    const lw = pPt(shape.lineW||0.75);
+    lnXml = `<a:ln w="${lw}"><a:solidFill><a:srgbClr val="${shape.lineColor}"/></a:solidFill></a:ln>`;
+  } else { lnXml = '<a:ln><a:noFill/></a:ln>'; }
+  const effectXml = shape.shadow ? '<a:effectLst><a:outerShdw blurRad="76200" dist="25400" dir="2700000" rotWithShape="0"><a:srgbClr val="000000"><a:alpha val="14000"/></a:srgbClr></a:outerShdw></a:effectLst>' : '';
+  const lines = shape.lines||[];
+  const anchor = shape.valign==='middle'?'ctr':shape.valign==='bottom'?'b':'t';
+  const bodyPr = `<a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="${anchor}"><a:noAutofit/></a:bodyPr>`;
+  const paras = lines.length? lines.map(pParaXml).join('') : '<a:p/>';
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Shape ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>`+
+    `<p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm>`+
+    `<a:prstGeom prst="${prst}">${avLst}</a:prstGeom>${fillXml}${lnXml}${effectXml}</p:spPr>`+
+    `<p:txBody>${bodyPr}${paras}</p:txBody></p:sp>`;
+}
+function pSlideXml(shapes){
+  const body = shapes.map((s,i)=>pShapeXml(s,i+2)).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n`+
+    `<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">`+
+    `<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>`+
+    `<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>`+
+    `<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>`+
+    `${body}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+}
+const PPTX_CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
+<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
+<Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`;
+const PPTX_RELS_ROOT = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`;
+function pptxCoreXml(title, author, dateIso){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<dc:title>${pEsc(title)}</dc:title>
+<dc:creator>${pEsc(author)}</dc:creator>
+<cp:lastModifiedBy>${pEsc(author)}</cp:lastModifiedBy>
+<dcterms:created xsi:type="dcterms:W3CDTF">${dateIso}</dcterms:created>
+<dcterms:modified xsi:type="dcterms:W3CDTF">${dateIso}</dcterms:modified>
+</cp:coreProperties>`;
+}
+const PPTX_APP_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+<Application>Microsoft Office PowerPoint</Application>
+<Slides>1</Slides>
+<TitlesOfParts><vt:vector size="1" baseType="lpstr"><vt:lpstr>Slide 1</vt:lpstr></vt:vector></TitlesOfParts>
+</Properties>`;
+const PPTX_PRESENTATION_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>
+<p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst>
+<p:sldSz cx="12192000" cy="6858000" type="screen16x9"/>
+<p:notesSz cx="6858000" cy="9144000"/>
+</p:presentation>`;
+const PPTX_PRESENTATION_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
+</Relationships>`;
+const PPTX_SLIDE_MASTER_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:cSld>
+<p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>
+<p:spTree>
+<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>
+</p:spTree>
+</p:cSld>
+<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>
+<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>
+</p:sldMaster>`;
+const PPTX_SLIDE_MASTER_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/>
+</Relationships>`;
+const PPTX_SLIDE_LAYOUT_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank" preserve="1">
+<p:cSld name="Blank">
+<p:spTree>
+<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>
+</p:spTree>
+</p:cSld>
+<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
+</p:sldLayout>`;
+const PPTX_SLIDE_LAYOUT_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
+</Relationships>`;
+const PPTX_SLIDE_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+</Relationships>`;
+const PPTX_THEME_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="AIS Theme">
+<a:themeElements>
+<a:clrScheme name="AIS">
+<a:dk1><a:srgbClr val="1C2620"/></a:dk1>
+<a:lt1><a:srgbClr val="FFFFFF"/></a:lt1>
+<a:dk2><a:srgbClr val="0A5C36"/></a:dk2>
+<a:lt2><a:srgbClr val="F7F8FA"/></a:lt2>
+<a:accent1><a:srgbClr val="8CC63F"/></a:accent1>
+<a:accent2><a:srgbClr val="0A5C36"/></a:accent2>
+<a:accent3><a:srgbClr val="F2A93B"/></a:accent3>
+<a:accent4><a:srgbClr val="E1483F"/></a:accent4>
+<a:accent5><a:srgbClr val="2F7FC9"/></a:accent5>
+<a:accent6><a:srgbClr val="6B7770"/></a:accent6>
+<a:hlink><a:srgbClr val="0A5C36"/></a:hlink>
+<a:folHlink><a:srgbClr val="8CC63F"/></a:folHlink>
+</a:clrScheme>
+<a:fontScheme name="AIS">
+<a:majorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>
+<a:minorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont>
+</a:fontScheme>
+<a:fmtScheme name="AIS">
+<a:fillStyleLst>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+</a:fillStyleLst>
+<a:lnStyleLst>
+<a:ln w="6350"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+<a:ln w="12700"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+<a:ln w="19050"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+</a:lnStyleLst>
+<a:effectStyleLst>
+<a:effectStyle><a:effectLst/></a:effectStyle>
+<a:effectStyle><a:effectLst/></a:effectStyle>
+<a:effectStyle><a:effectLst/></a:effectStyle>
+</a:effectStyleLst>
+<a:bgFillStyleLst>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+</a:bgFillStyleLst>
+</a:fmtScheme>
+</a:themeElements>
+</a:theme>`;
+function buildPptxZip(shapes, meta){
+  meta = meta||{};
+  const zip = new JSZip();
+  zip.file("[Content_Types].xml", PPTX_CONTENT_TYPES);
+  zip.folder("_rels").file(".rels", PPTX_RELS_ROOT);
+  zip.folder("docProps").file("core.xml", pptxCoreXml(meta.title||'Presentation', meta.author||'AIS', meta.dateIso||new Date().toISOString()));
+  zip.folder("docProps").file("app.xml", PPTX_APP_XML);
+  zip.folder("ppt").file("presentation.xml", PPTX_PRESENTATION_XML);
+  zip.folder("ppt/_rels").file("presentation.xml.rels", PPTX_PRESENTATION_RELS);
+  zip.folder("ppt/slideMasters").file("slideMaster1.xml", PPTX_SLIDE_MASTER_XML);
+  zip.folder("ppt/slideMasters/_rels").file("slideMaster1.xml.rels", PPTX_SLIDE_MASTER_RELS);
+  zip.folder("ppt/slideLayouts").file("slideLayout1.xml", PPTX_SLIDE_LAYOUT_XML);
+  zip.folder("ppt/slideLayouts/_rels").file("slideLayout1.xml.rels", PPTX_SLIDE_LAYOUT_RELS);
+  zip.folder("ppt/theme").file("theme1.xml", PPTX_THEME_XML);
+  zip.folder("ppt/slides").file("slide1.xml", pSlideXml(shapes));
+  zip.folder("ppt/slides/_rels").file("slide1.xml.rels", PPTX_SLIDE_RELS);
+  return zip;
+}
+
+/* ---- Slide content builder: 1-page Sales Performance summary using LIVE data ---- */
+async function exportPptx(){
+  showToast('กำลังสร้างไฟล์ PowerPoint...');
+  const P1='1E3C8C', P2='3B6FD6', P3='5B9BF0', PG='1F9D6B', PTEAL='1E88A8';
+  const PTEXT='152238', PMUTE='66738C', PCARD='F5F7FB', PBORDER='E3E7EF', PWHITE='FFFFFF', PRED='E1483F', PAMBER='F2A93B';
+  const pTraffic = pct=> pct>=100?'2F9E44': pct>=90?PAMBER:PRED;
+
+  const shapes = [];
+  const rect=(x,y,w,h,o)=>shapes.push(Object.assign({kind:'rect',x,y,w,h},o));
+  const roundRect=(x,y,w,h,o)=>shapes.push(Object.assign({kind:'roundRect',x,y,w,h},o));
+  const oval=(x,y,w,h,o)=>shapes.push(Object.assign({kind:'oval',x,y,w,h},o));
+  const ptext=(x,y,w,h,lines,o)=>shapes.push(Object.assign({kind:'rect',x,y,w,h,fill:null,lines},o));
+  const card=(x,y,w,h,fill)=>roundRect(x,y,w,h,{fill:fill||PWHITE, lineColor:PBORDER, lineW:0.75, radius:6000, shadow:true});
+  const sectionLabel=(label,x,y,w)=>{
+    oval(x,y+0.05,0.07,0.07,{fill:PG});
+    ptext(x+0.14,y-0.04,w-0.14,0.2,[{text:label.toUpperCase(),size:9.5,bold:true,color:P1,charSpacing:1}]);
+  };
+  function hBarChart(x,y,w,h,labels,values,color,fmt){
+    const n=labels.length, maxV=Math.max(1,...values), rowH=h/n, barH=Math.min(0.18,rowH*0.55), labelW=0.9, availW=w-labelW-0.65;
+    for(let i=0;i<n;i++){
+      const ry=y+i*rowH+(rowH-barH)/2;
+      ptext(x, ry-0.02, labelW, 0.18, [{text:labels[i], size:7.5, color:PMUTE}]);
+      const bw=Math.max(0.03,(values[i]/maxV)*availW);
+      rect(x+labelW, ry, bw, barH, {fill:color});
+      ptext(x+labelW+bw+0.05, ry-0.02, 0.6, 0.18, [{text:fmt(values[i]), size:6.8, color:PTEXT, bold:true}]);
+    }
+  }
+  function stackedBarChart(x,y,w,h,labels,seriesA,seriesB,colorA,colorB,fmt){
+    const n=labels.length, maxV=Math.max(1,...seriesA.map((v,i)=>v+seriesB[i]));
+    const slotW=w/n, barW=Math.min(0.34,slotW*0.5), labelH=0.14, chartH=h-labelH;
+    for(let i=0;i<n;i++){
+      const slotX=x+i*slotW+(slotW-barW)/2;
+      const aH=Math.max(0.01,(seriesA[i]/maxV)*chartH), bH=Math.max(0.01,(seriesB[i]/maxV)*chartH);
+      rect(slotX, y+chartH-bH, barW, bH, {fill:colorB});
+      rect(slotX, y+chartH-bH-aH, barW, aH, {fill:colorA});
+      ptext(x+i*slotW, y+chartH+0.01, slotW, labelH, [{text:labels[i], size:5.7, color:PMUTE, align:'ctr'}]);
+    }
+  }
+
+  // ---- gather live data (reuse dashboard's own aggregation helpers) ----
+  const rows = rowsThisMonth();
+  const deviceTotal = sumBucket(rows,'device');
+  const accTotal = sumBucket(rows,'accessories');
+  const simTotal = sumBucket(rows,'sim');
+  const manualTotal = sumManual();
+  const grandRev = deviceTotal.rev + accTotal.rev;
+  const grandUnit = deviceTotal.qty + accTotal.qty;
+  const target = CONFIG.revenueMonthlyTarget||0;
+  const achPct = target? (grandRev/target*100):0;
+  const devRevPct = grandRev? (deviceTotal.rev/grandRev*100):0;
+  const accRevPct = grandRev? (accTotal.rev/grandRev*100):0;
+  const dates = last7Dates();
+  const trendLabels = dates.map(shortDate);
+  const devRevSeries = dates.map(d=> sumBucket(rows.filter(r=>r.date===d),'device').rev/1000000);
+  const accRevSeries = dates.map(d=> sumBucket(rows.filter(r=>r.date===d),'accessories').rev/1000000);
+  const deviceBrands = byBrandModel(rows,'device', r=>r.brand).slice(0,6);
+  const accBrands = byBrandModel(rows,'accessories', r=>r.brand).slice(0,6);
+  const now = new Date();
+  const monthLabel = now.toLocaleDateString('en-GB',{month:'long', year:'numeric'});
+
+  /* ---------------- Header ---------------- */
+  roundRect(0,0,13.333,1.15,{fill:P1});
+  ptext(0.4,0.18,9.0,0.4,[{text:(CONFIG.eventName||'Sales Performance Dashboard'), size:22, bold:true, color:PWHITE}]);
+  ptext(0.4,0.62,9.0,0.3,[{text:'Month to Date · '+monthLabel, size:11, color:'CFE0FF'}]);
+  ptext(9.6,0.16,3.33,0.2,[{text:'AS OF', size:9, color:'CFE0FF', align:'r'}]);
+  ptext(9.6,0.34,3.33,0.24,[{text: now.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'})+'  '+now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}), size:13, bold:true, color:PWHITE, align:'r'}]);
+
+  /* ---------------- KPI row ---------------- */
+  {
+    const y0=1.32, h=0.95, x0=0.4, gap=0.12, w=(13.333-0.8-gap*5)/6;
+    const kpis=[
+      {label:'TARGET (MB)', value:(target/1000000).toFixed(2), fill:PG},
+      {label:'REV. (MB)', value:(grandRev/1000000).toFixed(2), fill:PTEAL},
+      {label:'REV. %', value:devRevPct.toFixed(0)+'/'+accRevPct.toFixed(0), sub:'Device / Acc.', fill:null},
+      {label:'%ACHIEVE TARGET', value:achPct.toFixed(0)+'%', fill:null, big:true, color:pTraffic(achPct)},
+      {label:'UNITS', value:num(grandUnit), fill:P2},
+      {label:'UNITS %', value:(grandUnit?Math.round(deviceTotal.qty/grandUnit*100):0)+'/'+(grandUnit?Math.round(accTotal.qty/grandUnit*100):0), sub:'Device / Acc.', fill:null},
+    ];
+    kpis.forEach((k,i)=>{
+      const x=x0+i*(w+gap);
+      if(k.fill){
+        roundRect(x,y0,w,h,{fill:k.fill,radius:6000,shadow:true});
+        ptext(x+0.1,y0+0.1,w-0.2,0.3,[{text:k.label,size:8,bold:true,color:PWHITE}]);
+        ptext(x+0.1,y0+0.4,w-0.2,0.4,[{text:k.value,size:19,bold:true,color:PWHITE}]);
+      } else {
+        card(x,y0,w,h);
+        ptext(x+0.1,y0+0.1,w-0.2,0.3,[{text:k.label,size:8,bold:true,color:PMUTE}]);
+        ptext(x+0.1,y0+0.4,w-0.2,0.4,[{text:k.value,size:k.big?22:17,bold:true,color:k.color||PTEXT,align:k.big?'ctr':'l'}]);
+        if(k.sub) ptext(x+0.1,y0+0.76,w-0.2,0.16,[{text:k.sub,size:7,color:PMUTE}]);
+      }
+    });
+  }
+
+  /* ---------------- Trackers row ---------------- */
+  {
+    const y0=2.42, h=0.85, x0=0.4, gap=0.12, w=(13.333-0.8-gap*3)/4;
+    const trackers=[
+      {icon:'SIM', title:'SIM', actual:simTotal.qty, tgt:CONFIG.simMonthlyTarget},
+      {icon:'NP', title:'New Post', actual:manualTotal.newpost, tgt:CONFIG.newpostMonthlyTarget},
+      {icon:'FBB', title:'FBB', actual:manualTotal.fbb, tgt:CONFIG.fbbMonthlyTarget},
+      {icon:'CP', title:'Care Plus', actual:manualTotal.careplus, tgt:CONFIG.careplusMonthlyTarget},
+    ];
+    trackers.forEach((t,i)=>{
+      const x=x0+i*(w+gap);
+      const pct = t.tgt? (t.actual/t.tgt*100):0;
+      card(x,y0,w,h);
+      ptext(x+0.12,y0+0.09,w-0.24,0.18,[{text:t.title.toUpperCase(),size:8.5,bold:true,color:PTEXT}]);
+      ptext(x+0.12,y0+0.32,1.4,0.28,[{text:num(t.actual),size:15,bold:true,color:PTEXT}]);
+      ptext(x+0.12,y0+0.60,w-0.24,0.16,[{text:'Target '+num(t.tgt),size:7,color:PMUTE}]);
+      ptext(x+w-0.85,y0+0.30,0.75,0.3,[{text:pct.toFixed(0)+'%',size:13,bold:true,color:pTraffic(pct),align:'r'}]);
+    });
+  }
+
+  /* ---------------- Daily trend + By Brand ---------------- */
+  const row3Y=3.42, row3H=3.55;
+  {
+    const x=0.4, w=4.2;
+    card(x,row3Y,w,row3H);
+    sectionLabel('Daily Trend — Rev (MB)', x+0.14, row3Y+0.16, w-0.28);
+    ptext(x+0.16,row3Y+0.36,3.5,0.14,[{text:'\u25A0 Accessories  \u25A0 Device',size:6.6,bold:true,color:PMUTE}]);
+    stackedBarChart(x+0.16,row3Y+0.54,w-0.32,1.0,trendLabels,accRevSeries,devRevSeries,PG,P2,(v)=>v.toFixed(1));
+    sectionLabel('Rev. % Split', x+0.14, row3Y+1.7, w-0.28);
+    const dSize=1.0;
+    const cx=x+w/2-dSize/2, cy=row3Y+1.95;
+    oval(cx,cy,dSize,dSize,{fill:PCARD,lineColor:PBORDER,lineW:0.75});
+    ptext(cx,cy,dSize,dSize,[{text:devRevPct.toFixed(0)+'%',size:15,bold:true,color:P2,align:'ctr'}],{valign:'middle'});
+    ptext(x+0.3,row3Y+3.05,w-0.6,0.2,[{text:'Device '+devRevPct.toFixed(0)+'%   \u00B7   Accessories '+accRevPct.toFixed(0)+'%',size:8.5,color:PTEXT,align:'ctr'}]);
+  }
+  {
+    const x=4.75, w=3.9;
+    card(x,row3Y,w,row3H);
+    sectionLabel('Device — Top Brands (Rev)', x+0.14, row3Y+0.16, w-0.28);
+    hBarChart(x+0.16,row3Y+0.4,w-0.32,row3H-0.55, deviceBrands.map(b=>b.brand), deviceBrands.map(b=>b.rev), P2, v=>'\u0E3F'+(v/1000).toFixed(0)+'K');
+  }
+  {
+    const x=8.75, w=4.18;
+    card(x,row3Y,w,row3H);
+    sectionLabel('Accessories — Top Brands (Rev)', x+0.14, row3Y+0.16, w-0.28);
+    hBarChart(x+0.16,row3Y+0.4,w-0.32,row3H-0.55, accBrands.map(b=>b.brand), accBrands.map(b=>b.rev), PG, v=>'\u0E3F'+(v/1000).toFixed(0)+'K');
+  }
+
+  /* ---------------- Footer ---------------- */
+  ptext(0.4,7.14,12.53,0.2,[{text:'Sales Performance Dashboard \u00B7 Data cumulates from daily POS imports \u00B7 Generated for internal review',size:7.5,color:PMUTE,align:'ctr'}]);
+
+  const zip = buildPptxZip(shapes, {title:(CONFIG.eventName||'Sales Performance')+' - Summary', author:'Sales Performance Dashboard', dateIso:new Date().toISOString()});
+  const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `Sales_Performance_${fmtDate(new Date())}.pptx`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  showToast('Export PowerPoint เรียบร้อยแล้ว');
+}
+
+
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+function openSettings(){
+  document.getElementById('s_eventName').value = CONFIG.eventName||'';
+  document.getElementById('s_revenueMonthlyTarget').value = CONFIG.revenueMonthlyTarget||'';
+  document.getElementById('s_simMonthlyTarget').value = CONFIG.simMonthlyTarget||'';
+  document.getElementById('s_newpostMonthlyTarget').value = CONFIG.newpostMonthlyTarget||'';
+  document.getElementById('s_fbbMonthlyTarget').value = CONFIG.fbbMonthlyTarget||'';
+  document.getElementById('s_careplusMonthlyTarget').value = CONFIG.careplusMonthlyTarget||'';
+  document.getElementById('s_user').value='';
+  document.getElementById('s_pass').value='';
+  document.getElementById('settingsModal').style.display='flex';
+}
+async function saveSettings(){
+  CONFIG.eventName = document.getElementById('s_eventName').value.trim() || 'Sales Performance Dashboard';
+  CONFIG.revenueMonthlyTarget = +document.getElementById('s_revenueMonthlyTarget').value||0;
+  CONFIG.simMonthlyTarget = +document.getElementById('s_simMonthlyTarget').value||0;
+  CONFIG.newpostMonthlyTarget = +document.getElementById('s_newpostMonthlyTarget').value||0;
+  CONFIG.fbbMonthlyTarget = +document.getElementById('s_fbbMonthlyTarget').value||0;
+  CONFIG.careplusMonthlyTarget = +document.getElementById('s_careplusMonthlyTarget').value||0;
+  try{
+    if(BACKEND_MODE==='gas') await gasCall('saveConfig', {data: JSON.stringify(CONFIG)});
+    const newUser = document.getElementById('s_user').value.trim();
+    const newPass = document.getElementById('s_pass').value.trim();
+    if(newUser && newPass){
+      CREDS = {user:newUser, pass:newPass};
+      if(BACKEND_MODE==='gas') await gasCall('saveCreds', {user:newUser, pass:newPass});
+      showToast('อัปเดต Username / Password เรียบร้อยแล้ว');
+    }else{
+      showToast('บันทึก Settings เรียบร้อยแล้ว');
+    }
+  }catch(err){ showToast('บันทึกไม่สำเร็จ: '+err.message); }
+  document.getElementById('settingsModal').style.display='none';
+  await renderAll();
+}
+
+/* ============================================================
+   DATA ENTRY (New Post / FBB / Care Plus)
+   ============================================================ */
+function openEntryModal(){
+  document.getElementById('entryDate').value = fmtDate(new Date());
+  const existing = MANUAL_ROWS.find(r=>r.date===document.getElementById('entryDate').value);
+  document.getElementById('f_newpost').value = existing? existing.newpost : '';
+  document.getElementById('f_fbb').value = existing? existing.fbb : '';
+  document.getElementById('f_careplus').value = existing? existing.careplus : '';
+  document.getElementById('entryModal').style.display='flex';
+}
+document.getElementById('entryDate').addEventListener('change', ()=>{
+  const d = document.getElementById('entryDate').value;
+  const existing = MANUAL_ROWS.find(r=>r.date===d);
+  document.getElementById('f_newpost').value = existing? existing.newpost : '';
+  document.getElementById('f_fbb').value = existing? existing.fbb : '';
+  document.getElementById('f_careplus').value = existing? existing.careplus : '';
+});
+async function saveEntry(){
+  const date = document.getElementById('entryDate').value;
+  if(!date){ showToast('กรุณาเลือกวันที่'); return; }
+  const data = {
+    newpost: +document.getElementById('f_newpost').value||0,
+    fbb: +document.getElementById('f_fbb').value||0,
+    careplus: +document.getElementById('f_careplus').value||0,
+  };
+  try{
+    if(BACKEND_MODE==='gas') await gasCall('saveManualEntry', {date, data: JSON.stringify(data)});
+    const idx = MANUAL_ROWS.findIndex(r=>r.date===date);
+    if(idx>=0) MANUAL_ROWS[idx] = Object.assign({date}, data);
+    else MANUAL_ROWS.push(Object.assign({date}, data));
+    showToast('บันทึกข้อมูลวันที่ '+date+' เรียบร้อยแล้ว');
+    document.getElementById('entryModal').style.display='none';
+    await renderAll();
+  }catch(err){ showToast('บันทึกไม่สำเร็จ: '+err.message); }
+}
+
+/* ============================================================
+   UI WIRING
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const hint = document.getElementById('loginHint');
+  if(BACKEND_MODE==='gas'){
+    hint.innerHTML = '🟢 เชื่อมต่อ Google Sheet Backend แล้ว<br>Username / Password ตามที่ตั้งไว้ใน Settings';
+  }else{
+    hint.innerHTML = '⚠️ ยังไม่ได้ตั้งค่า Backend (GAS_URL ว่าง)<br>Demo account: <b>manager</b> / <b>trang2026</b>';
+  }
+});
+
+document.getElementById('loginForm').addEventListener('submit', async (ev)=>{
+  ev.preventDefault();
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value.trim();
+  let ok=false;
+  try{
+    if(BACKEND_MODE==='gas'){
+      const res = await gasCall('login', {user:u, pass:p});
+      ok = !!(res && res.success);
+    }else{
+      ok = (u===CREDS.user && p===CREDS.pass);
+    }
+  }catch(err){
+    document.getElementById('loginErr').textContent = 'เชื่อมต่อ Backend ไม่สำเร็จ: '+err.message;
+    document.getElementById('loginErr').style.display='block';
+    return;
+  }
+  if(ok){
+    document.getElementById('loginErr').style.display='none';
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('app').style.display='block';
+    await boot();
+  }else{
+    document.getElementById('loginErr').textContent='Username หรือ Password ไม่ถูกต้อง';
+    document.getElementById('loginErr').style.display='block';
+  }
+});
+document.getElementById('btnLogout').onclick = ()=>{
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+};
+document.getElementById('btnRefresh').onclick = async ()=>{
+  showToast('กำลังโหลดข้อมูลล่าสุด...');
+  await loadAggData();
+  await loadManualEntries();
+  await renderAll();
+  showToast('อัปเดตข้อมูลเรียบร้อยแล้ว');
+};
+document.getElementById('btnDataEntry').onclick = openEntryModal;
+document.getElementById('closeEntry').onclick = ()=> document.getElementById('entryModal').style.display='none';
+document.getElementById('cancelEntry').onclick = ()=> document.getElementById('entryModal').style.display='none';
+document.getElementById('saveEntry').onclick = saveEntry;
+document.getElementById('entryModal').addEventListener('click', (ev)=>{ if(ev.target.id==='entryModal') ev.target.style.display='none'; });
+document.getElementById('btnExportExcel').onclick = exportExcel;
+document.getElementById('btnExportPptx').onclick = exportPptx;
+document.getElementById('btnSettings').onclick = openSettings;
+document.getElementById('closeSettings').onclick = ()=> document.getElementById('settingsModal').style.display='none';
+document.getElementById('cancelSettings').onclick = ()=> document.getElementById('settingsModal').style.display='none';
+document.getElementById('saveSettings').onclick = saveSettings;
+document.getElementById('settingsModal').addEventListener('click', (ev)=>{ if(ev.target.id==='settingsModal') ev.target.style.display='none'; });
+
+async function boot(){
+  await loadConfig();
+  await loadAggData();
+  await loadManualEntries();
+  await renderAll();
+}
+</script>
+
+</body>
+</html>
