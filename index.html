@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIS Sales Dashboard — Robinson Trang</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --green:#0A5C36; --green-dark:#073F25; --lime:#8DC63F; --light:#EAF7EF;
+    --dark:#1B1B1B; --grey:#6B7280; --red:#C0392B; --white:#FFFFFF;
+    --border:#E5E7EB; --gold:#F4C542; --silver:#C9CDD3; --bronze:#D8935A;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{font-family:"Segoe UI",Tahoma,Calibri,Arial,sans-serif;background:#F4F6F5;color:var(--dark);}
+
+  /* ---------- Login ---------- */
+  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);}
+  .login-card{background:var(--white);border-radius:14px;padding:40px 36px;width:340px;box-shadow:0 20px 50px rgba(0,0,0,0.25);}
+  .login-card h1{font-size:19px;margin:0 0 4px;color:var(--green);}
+  .login-card p.sub{margin:0 0 24px;color:var(--grey);font-size:12.5px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--dark);margin-bottom:6px;}
+  .field input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;}
+  .field input:focus{border-color:var(--green);}
+  .btn-primary{width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;}
+  .btn-primary:hover{background:var(--green-dark);}
+  .login-error{color:var(--red);font-size:12.5px;margin:-8px 0 14px;min-height:16px;}
+  .login-hint{margin-top:18px;font-size:11px;color:var(--grey);text-align:center;line-height:1.5;}
+
+  /* ---------- App shell (normal page scroll, comfortable sizing) ---------- */
+  #app{display:none;}
+  header.topbar{background:var(--green);color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  header.topbar .title{font-size:17px;font-weight:700;line-height:1.2;}
+  header.topbar .subtitle{font-size:11.5px;color:#D9EFE0;font-style:italic;margin-top:2px;}
+  .topbar-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .btn{padding:9px 14px;border-radius:7px;border:none;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+  .btn:hover{opacity:.88;}
+  .btn-lime{background:var(--lime);color:var(--green-dark);}
+  .btn-outline{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.6);}
+  .btn-white{background:#fff;color:var(--green);}
+  .btn-amber{background:#FFF3D6;color:#8A6100;}
+  input[type=file]{display:none;}
+
+  main{max-width:1400px;margin:0 auto;padding:20px;}
+  .status-bar{font-size:12px;color:var(--grey);margin-bottom:8px;display:flex;gap:16px;flex-wrap:wrap;}
+  .status-bar b{color:var(--dark);}
+  .storage-note{background:var(--light);color:var(--green-dark);border-radius:8px;padding:8px 12px;font-size:11px;margin-bottom:14px;}
+  .storage-note.warn{background:#FFF3D6;color:#8A6100;}
+
+  #dashboard-capture{background:#fff;border-radius:10px;padding:22px;}
+
+  .cards-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;}
+  .kpi-card{background:var(--light);border-radius:10px;padding:14px;}
+  .kpi-card.amber{background:#FFF7E8;}
+  .kpi-card .label{font-size:9.5px;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:.3px;}
+  .kpi-card .value{font-size:19px;font-weight:700;margin-top:8px;color:var(--dark);line-height:1.15;}
+  .kpi-card .value.green{color:var(--green);}
+  .kpi-card .value.red{color:var(--red);}
+  .kpi-card .value.amber{color:#8A6100;}
+  .kpi-card .subvalue{font-size:10.5px;color:var(--grey);margin-top:4px;}
+
+  .section-title{font-size:13px;font-weight:700;color:var(--green);margin:0 0 10px;text-transform:uppercase;letter-spacing:.3px;display:flex;align-items:center;justify-content:space-between;}
+  .section-title .mini-btn{font-size:10.5px;font-weight:600;color:var(--green);background:var(--light);border:1px solid var(--lime);border-radius:6px;padding:4px 9px;cursor:pointer;text-transform:none;letter-spacing:0;}
+
+  .grid-2{display:grid;grid-template-columns:1.15fr 1fr;gap:22px;margin-bottom:26px;}
+  .chart-col, .service-col{min-width:0;}
+  .chart-box{height:250px;position:relative;}
+  /* constrain data tables so they don't stretch to full width */
+  .table-wrap{overflow-x:auto;}
+  .table-wrap table{max-width:560px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th{background:var(--green);color:#fff;padding:7px 8px;text-align:left;font-weight:600;}
+  th.num,td.num{text-align:right;}
+  td{padding:6px 8px;border-bottom:1px solid var(--border);}
+  tr:nth-child(even) td{background:#FAFBFA;}
+  .neg{color:var(--red);font-weight:600;}
+  .pos{color:var(--green);font-weight:600;}
+  .muted{color:var(--grey);}
+
+  .brand-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:26px;}
+  .top-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:26px;}
+  .subhead{font-weight:700;font-size:12px;margin-bottom:6px;color:var(--dark);}
+  th.lime{background:var(--lime);color:var(--green-dark);}
+
+  /* rank highlight rows */
+  tr.rank-1 td{background:#FFF6DC !important;font-weight:700;}
+  tr.rank-2 td{background:#F2F3F5 !important;font-weight:600;}
+  tr.rank-3 td{background:#FBEEE3 !important;font-weight:600;}
+  .rank-badge{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;font-size:9.5px;font-weight:800;color:#fff;margin-right:5px;}
+  .rank-badge.r1{background:var(--gold);color:#5c4400;}
+  .rank-badge.r2{background:var(--silver);color:#3a3d42;}
+  .rank-badge.r3{background:var(--bronze);color:#4a2c11;}
+  .rank-badge.r0{background:#E5E7EB;color:#888;}
+  .share-bar-wrap{width:100%;max-width:90px;background:#EEF1EF;border-radius:3px;height:6px;overflow:hidden;margin-top:3px;margin-left:auto;}
+  .share-bar{height:100%;background:linear-gradient(90deg,var(--green),var(--lime));border-radius:3px;}
+
+  .footer-note{font-size:10.5px;color:var(--grey);font-style:italic;margin-top:14px;}
+
+  @media (max-width:1000px){
+    .cards-row{grid-template-columns:repeat(2,1fr);}
+    .grid-2, .brand-grid, .top-grid{grid-template-columns:1fr;}
+    .table-wrap table{max-width:none;}
+  }
+
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:999;}
+  #toast.show{opacity:1;}
+
+  /* ---------- Manual Entry Modal ---------- */
+  #manualModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;padding:20px;}
+  #manualModal.show{display:flex;}
+  #settingsModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1001;align-items:center;justify-content:center;padding:20px;}
+  #settingsModal.show{display:flex;}
+  .modal-card{background:#fff;border-radius:12px;width:100%;max-width:640px;max-height:88vh;overflow:auto;padding:0;}
+  .modal-head{background:var(--green);color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:12px 12px 0 0;}
+  .modal-head h2{font-size:15px;margin:0;}
+  .modal-close{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;}
+  .modal-body{padding:18px 20px;}
+  .tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+  .tab-btn{padding:7px 13px;border-radius:7px;border:1.5px solid var(--border);background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:var(--grey);}
+  .tab-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+  .target-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;background:var(--light);padding:10px 12px;border-radius:8px;}
+  .target-row label{font-size:12px;font-weight:700;color:var(--dark);}
+  .target-row input{width:120px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;}
+  .entry-form{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end;}
+  .entry-form .f{display:flex;flex-direction:column;gap:4px;}
+  .entry-form label{font-size:10.5px;color:var(--grey);font-weight:600;}
+  .entry-form input{padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:110px;}
+  .entry-form button{padding:8px 14px;background:var(--lime);color:var(--green-dark);border:none;border-radius:6px;font-weight:700;font-size:12.5px;cursor:pointer;}
+  .entries-table{max-height:180px;overflow:auto;border:1px solid var(--border);border-radius:8px;}
+  .del-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;}
+  .summary-line{margin-top:14px;padding:10px 12px;background:#F4F6F5;border-radius:8px;font-size:12.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+  .modal-note{font-size:10.5px;color:var(--grey);margin-top:14px;line-height:1.5;}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>AIS SALES DASHBOARD</h1>
+    <p class="sub">AIS Shop Robinson Trang — Area South</p>
+    <div class="field"><label>Username</label><input type="text" id="loginUser" autocomplete="username" placeholder="username"></div>
+    <div class="field"><label>Password</label><input type="password" id="loginPass" autocomplete="current-password" placeholder="••••••••"></div>
+    <div class="login-error" id="loginError"></div>
+    <button class="btn-primary" onclick="tryLogin()">เข้าสู่ระบบ</button>
+    <div class="login-hint">Default: <b>trang</b> / <b>ais2026</b><br>เปลี่ยน user/pass ได้ในโค้ด (ตัวแปร AUTH)</div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app">
+  <header class="topbar">
+    <div>
+      <div class="title">SALES PERFORMANCE DASHBOARD : AIS SHOP ROBINSON TRANG</div>
+      <div class="subtitle" id="topSubtitle">Report Month —   |   Store: —</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-amber" onclick="openManualModal()">📝 กรอกข้อมูลรายวัน</button>
+      <button class="btn btn-outline" onclick="openSettingsModal()">⚙️ Google Sheet</button>
+      <label class="btn btn-lime" for="fileInput">⭱ Import Excel</label>
+      <input type="file" id="fileInput" accept=".xlsx" onchange="handleFile(event)">
+      <button class="btn btn-white" onclick="exportPptx()">▤ Export PPT</button>
+      <button class="btn btn-outline" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="status-bar">
+      <span>แหล่งข้อมูล: <b id="dataSource">ตัวอย่าง (Sample Data)</b></span>
+      <span>อัปเดตล่าสุด: <b id="lastUpdate">—</b></span>
+    </div>
+    <div class="storage-note" id="storageNote"></div>
+
+    <div id="dashboard-capture">
+      <div class="cards-row" id="kpiCards"></div>
+
+      <div class="grid-2">
+        <div class="chart-col">
+          <div class="section-title">Daily Sales — Device vs Accessory (THB)</div>
+          <div class="chart-box"><canvas id="trendChart"></canvas></div>
+        </div>
+        <div class="service-col">
+          <div class="section-title">Service KPI (MTD)<span class="mini-btn" onclick="openManualModal()">+ กรอกข้อมูล</span></div>
+          <div class="table-wrap"><table id="serviceTable"></table></div>
+        </div>
+      </div>
+
+      <div class="section-title">By Brand (Month-to-Date, เรียงยอดขายสูงสุด)</div>
+      <div class="brand-grid">
+        <div><div class="subhead">DEVICE — By Brand</div><div class="table-wrap"><table id="deviceBrandTable"></table></div></div>
+        <div><div class="subhead">ACCESSORY — By Brand</div><div class="table-wrap"><table id="accessoryBrandTable"></table></div></div>
+      </div>
+
+      <div class="section-title">Top Model (Month-to-Date)</div>
+      <div class="top-grid">
+        <div><div class="subhead">TOP MODEL — DEVICE</div><div class="table-wrap"><table id="deviceTopTable"></table></div></div>
+        <div><div class="subhead">TOP MODEL — ACCESSORY</div><div class="table-wrap"><table id="accessoryTopTable"></table></div></div>
+      </div>
+
+      <div class="footer-note">Note: Revenue = price after discount. Product = Device + Accessory. SIM/New Post/FBB/Care+ = manual MTD | CSI/Q = from Excel Import</div>
+    </div>
+  </main>
+</div>
+
+<!-- ================= MANUAL ENTRY MODAL ================= -->
+<div id="manualModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>กรอกข้อมูลรายวัน (สะสม MTD)</h2>
+      <button class="modal-close" onclick="closeManualModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs" id="manualTabs"></div>
+      <div class="target-row">
+        <label>Target เดือนนี้ (Unit):</label>
+        <input type="number" id="targetInput" onchange="updateTarget()">
+        <span class="muted" style="font-size:11px;" id="targetNote"></span>
+      </div>
+      <div class="entry-form">
+        <div class="f"><label>วันที่</label><input type="date" id="entryDate"></div>
+        <div class="f"><label>Rev (THB)</label><input type="number" id="entryRev" placeholder="0"></div>
+        <div class="f"><label>Unit</label><input type="number" id="entryUnit" placeholder="0"></div>
+        <button onclick="addEntry()">+ เพิ่มรายการ</button>
+      </div>
+      <div class="entries-table"><table id="entriesTable"></table></div>
+      <div class="summary-line" id="entrySummary"></div>
+      <div class="modal-note" id="modalStorageNote"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= SETTINGS MODAL (Google Sheet backend) ================= -->
+<div id="settingsModal">
+  <div class="modal-card" style="max-width:520px;">
+    <div class="modal-head">
+      <h2>⚙️ เชื่อมต่อ Google Sheet (บันทึกข้อมูลถาวร ข้ามเครื่อง/ทีม)</h2>
+      <button class="modal-close" onclick="closeSettingsModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="f" style="margin-bottom:12px;">
+        <label style="font-size:11.5px;font-weight:700;display:block;margin-bottom:6px;">Apps Script Web App URL (ลงท้ายด้วย /exec)</label>
+        <input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/XXXXXXXX/exec" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:7px;font-size:12.5px;">
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="btn btn-lime" style="padding:9px 16px;" onclick="testGasConnection()">ทดสอบการเชื่อมต่อ</button>
+        <button class="btn btn-white" style="padding:9px 16px;border:1.5px solid var(--green);" onclick="saveGasSettings()">บันทึก</button>
+        <button class="btn btn-outline" style="padding:9px 16px;color:var(--red);border-color:var(--red);" onclick="clearGasSettings()">เลิกใช้ / ล้างค่า</button>
+      </div>
+      <div id="gasTestResult" style="font-size:12px;margin-bottom:14px;"></div>
+      <div class="modal-note">
+        <b>วิธีติดตั้ง Backend:</b><br>
+        1) สร้าง Google Sheet เปล่า 1 ไฟล์<br>
+        2) เมนู Extensions → Apps Script → วางโค้ด <code>Code.gs</code> ที่แนบมาให้<br>
+        3) Deploy → New deployment → Web app → Execute as: Me, Who has access: Anyone<br>
+        4) Copy URL (ลงท้าย /exec) มาวางในช่องด้านบนแล้วกด "บันทึก"<br><br>
+        เมื่อเชื่อมต่อสำเร็จ ข้อมูลรายวัน (SIM/New Post/FBB/Care+) ที่กรอกทุกครั้งจะถูกบันทึกลง Google Sheet โดยตรง — เปิดจากเครื่องไหน เบราว์เซอร์ไหน หรือใครในทีมก็เห็นข้อมูลเดียวกัน ไม่มีวันหาย และแก้ไขข้อมูลตรงใน Sheet ได้ด้วย<br><br>
+        URL นี้บันทึกไว้ใน localStorage ของเบราว์เซอร์นี้เท่านั้น — เปิดจากเครื่องอื่นต้องวาง URL เดิมซ้ำอีกครั้ง (ครั้งเดียวต่อเครื่อง)
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ================= AUTH (client-side gate only — not real security) ================= */
+const AUTH = { user: "trang", pass: "ais2026" };
+
+function tryLogin(){
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  if(u === AUTH.user && p === AUTH.pass){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initApp();
+  } else {
+    document.getElementById('loginError').textContent = 'Username หรือ Password ไม่ถูกต้อง';
+  }
+}
+document.getElementById('loginPass').addEventListener('keydown', e => { if(e.key === 'Enter') tryLogin(); });
+
+function logout(){
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').textContent = '';
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+/* ================= STORAGE ABSTRACTION =================
+   Priority: 1) Claude Artifact storage (persists in Claude, cross-device)
+             2) Browser localStorage (persists on THIS browser/device only — used
+                automatically when this file is self-hosted, e.g. GitHub Pages)
+             3) In-memory (last resort, e.g. private-browsing blocks storage)      */
+const hasArtifactStorage = (typeof window.storage !== 'undefined' && window.storage !== null);
+let hasLocalStorage = false;
+try{ localStorage.setItem('__t__','1'); localStorage.removeItem('__t__'); hasLocalStorage = true; }catch(e){ hasLocalStorage = false; }
+let memoryStore = {};
+
+async function storageGet(key){
+  if(hasArtifactStorage){
+    try{ const r = await window.storage.get(key, false); return r ? r.value : null; }catch(e){ return null; }
+  }
+  if(hasLocalStorage){ return localStorage.getItem(key); }
+  return Object.prototype.hasOwnProperty.call(memoryStore, key) ? memoryStore[key] : null;
+}
+async function storageSet(key, value){
+  if(hasArtifactStorage){
+    try{ await window.storage.set(key, value, false); return true; }catch(e){ console.error(e); return false; }
+  }
+  if(hasLocalStorage){ try{ localStorage.setItem(key, value); return true; }catch(e){ return false; } }
+  memoryStore[key] = value;
+  return true;
+}
+function renderStorageNote(){
+  const el = document.getElementById('storageNote');
+  const modalEl = document.getElementById('modalStorageNote');
+  let msg, cls;
+  if(isGasConfigured()){
+    msg = '🟢 เชื่อมต่อ Google Sheet แล้ว — ข้อมูลรายวันบันทึกถาวร ข้ามเครื่อง/ข้ามทีมได้ (URL: ' + GAS_WEB_APP_URL.slice(0,50) + '…)';
+    cls = '';
+  } else if(hasArtifactStorage){
+    msg = '💾 ข้อมูลรายวันบันทึกถาวรผ่านระบบ Claude — เปิดไฟล์นี้ผ่าน Claude ครั้งหน้าจะเห็นข้อมูลเดิม';
+    cls = '';
+  } else if(hasLocalStorage){
+    msg = '💾 ข้อมูลรายวันบันทึกไว้ใน localStorage ของเบราว์เซอร์นี้ (ถาวร ไม่หายแม้ปิด/รีเฟรช) — แต่ผูกกับเครื่อง/เบราว์เซอร์นี้เท่านั้น ไม่ sync ข้ามเครื่องหรือข้ามทีม ถ้าล้าง Cache เบราว์เซอร์ข้อมูลจะหาย แนะนำ Export/จดสำรองเป็นระยะ';
+    cls = '';
+  } else {
+    msg = '⚠️ เบราว์เซอร์นี้บล็อกการบันทึกข้อมูลถาวร (เช่น Private/Incognito Mode) — ข้อมูลจะหายเมื่อรีเฟรช แนะนำเปิดแบบปกติหรือจดบันทึกสำรองไว้';
+    cls = 'warn';
+  }
+  el.textContent = msg;
+  el.className = 'storage-note' + (cls?' '+cls:'');
+  modalEl.innerHTML = msg + '<br>Care+ %ATR คำนวณจาก Care+ Unit สะสม ÷ Device Unit สะสม (จากไฟล์ Excel ที่ Import)';
+}
+
+/* ================= GOOGLE SHEET BACKEND (JSONP — avoids Apps Script CORS issues) ================= */
+let GAS_WEB_APP_URL = localStorage.getItem('gas_url') || '';
+let jsonpCounter = 0;
+
+function jsonpRequest(url, params){
+  return new Promise((resolve, reject)=>{
+    const cbName = 'gasCb_' + (jsonpCounter++) + '_' + Date.now();
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error('หมดเวลาเชื่อมต่อ (timeout)')); }, 15000);
+    function cleanup(){
+      clearTimeout(timer);
+      delete window[cbName];
+      const s = document.getElementById(cbName);
+      if(s) s.remove();
+    }
+    window[cbName] = (data)=>{ cleanup(); resolve(data); };
+    const qs = Object.keys(params).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(params[k])).join('&');
+    const script = document.createElement('script');
+    script.id = cbName;
+    script.src = url + (url.includes('?')?'&':'?') + qs + '&callback=' + cbName;
+    script.onerror = ()=>{ cleanup(); reject(new Error('เชื่อมต่อ Google Sheet ไม่สำเร็จ (ตรวจสอบ URL / การ Deploy)')); };
+    document.body.appendChild(script);
+  });
+}
+
+function isGasConfigured(){ return !!GAS_WEB_APP_URL; }
+
+function openSettingsModal(){
+  document.getElementById('gasUrlInput').value = GAS_WEB_APP_URL;
+  document.getElementById('gasTestResult').textContent = '';
+  document.getElementById('settingsModal').classList.add('show');
+}
+function closeSettingsModal(){ document.getElementById('settingsModal').classList.remove('show'); }
+async function testGasConnection(){
+  const url = document.getElementById('gasUrlInput').value.trim();
+  const resultEl = document.getElementById('gasTestResult');
+  if(!url){ resultEl.innerHTML = '<span class="neg">กรุณากรอก URL ก่อน</span>'; return; }
+  resultEl.textContent = 'กำลังทดสอบ...';
+  try{
+    const res = await jsonpRequest(url, {action:'getAll'});
+    if(res && res.entries){
+      resultEl.innerHTML = '<span class="pos">✓ เชื่อมต่อสำเร็จ! พบข้อมูล SIM ' + (res.entries.sim||[]).length + ' รายการ</span>';
+    } else {
+      resultEl.innerHTML = '<span class="neg">เชื่อมต่อได้ แต่รูปแบบข้อมูลไม่ถูกต้อง ตรวจสอบว่าวางโค้ด Code.gs ถูกต้อง</span>';
+    }
+  }catch(err){
+    resultEl.innerHTML = '<span class="neg">✗ ' + err.message + '</span>';
+  }
+}
+async function saveGasSettings(){
+  const url = document.getElementById('gasUrlInput').value.trim();
+  GAS_WEB_APP_URL = url;
+  localStorage.setItem('gas_url', url);
+  showToast(url ? 'บันทึก URL แล้ว — กำลังโหลดข้อมูลจาก Google Sheet' : 'ล้างค่าแล้ว');
+  closeSettingsModal();
+  renderStorageNote();
+  await loadManualState();
+  renderAll();
+}
+function clearGasSettings(){
+  GAS_WEB_APP_URL = '';
+  localStorage.removeItem('gas_url');
+  document.getElementById('gasUrlInput').value = '';
+  showToast('เลิกใช้ Google Sheet แล้ว — กลับไปใช้ที่เก็บข้อมูลในเครื่อง');
+  closeSettingsModal();
+  renderStorageNote();
+}
+
+
+/* ================= SAMPLE / DEFAULT EXCEL DATA ================= */
+let DATA = {
+  "report_month":"07/2026","store":"All","target_rev":20000000,"actual_rev":346285.98,
+  "device_rev":317541.96,"accessory_rev":28744.02,"pct_achieve_rev":0.017314299,
+  "target_units":1200,"actual_units":40,"device_units":13,"accessory_units":27,
+  "rev_today":0,"gap_rev":-19653714.02,
+  "trend":[
+    {"day":1,"date":"01/07","total":184087.98,"device":168000,"accessory":16087.98},
+    {"day":2,"date":"02/07","total":162198,"device":149541.96,"accessory":12656.04},
+    {"day":3,"date":"03/07","total":0,"device":0,"accessory":0}
+  ],
+  "device_brand":[
+    {"brand":"APPLE","rev":244299.98,"units":7,"pct":0.769347080933808},
+    {"brand":"HONGKONGBOOST","rev":1271.99,"units":1,"pct":0.00400573832825117},
+    {"brand":"HUAWEI","rev":1192,"units":1,"pct":0.00375383461133766},
+    {"brand":"SAMSUNG","rev":69378.99,"units":3,"pct":0.218487629162458},
+    {"brand":"XIAOMI","rev":1399,"units":1,"pct":0.00440571696414546}],
+  "accessory_brand":[
+    {"brand":"ABLEMEN","rev":3771,"units":2,"pct":0.131192505432434},
+    {"brand":"ALPHAX","rev":981,"units":1,"pct":0.034128837928724},
+    {"brand":"AMAZE ONE","rev":1465,"units":5,"pct":0.0509671229006938},
+    {"brand":"APPLE","rev":15824.99,"units":5,"pct":0.550548948963993},
+    {"brand":"FOCUS","rev":2707.98,"units":5,"pct":0.0942102044181712},
+    {"brand":"LINKUP","rev":580,"units":1,"pct":0.0201781100903771},
+    {"brand":"VEGER","rev":1953,"units":3,"pct":0.0679445672525972},
+    {"brand":"WHY","rev":261.01,"units":1,"pct":0.00908049743911951},
+    {"brand":"XIAOMI","rev":1200.04,"units":4,"pct":0.0417492055738898}],
+  "device_top":[
+    {"rank":1,"brand":"APPLE","model":"IP17PM_256GB","rev":135299.98,"units":3},
+    {"rank":2,"brand":"SAMSUNG","model":"S26U5G_12/512GB","rev":45100,"units":1},
+    {"rank":3,"brand":"APPLE","model":"AIR13M4WF_256GB","rev":38400,"units":1},
+    {"rank":4,"brand":"APPLE","model":"AIR11M4WF_128GB","rev":27400,"units":1},
+    {"rank":5,"brand":"APPLE","model":"IP17_256GB","rev":26800,"units":1}],
+  "accessory_top":[
+    {"rank":1,"brand":"APPLE","model":"MKEYBOARD AIR13","rev":10990,"units":1},
+    {"rank":2,"brand":"ABLEMEN","model":"BOXSETIPHONE17PM","rev":2790,"units":1},
+    {"rank":3,"brand":"APPLE","model":"PENCILUSBC","rev":2500,"units":1},
+    {"rank":4,"brand":"VEGER","model":"POWERBANK","rev":1953,"units":3},
+    {"rank":5,"brand":"FOCUS","model":"SCREEN PROTECTOR","rev":1449.99,"units":2}],
+  "service":[
+    {"metric":"CSI","target":90,"actual":7,"gap":-83,"pct":0.0777777777777778},
+    {"metric":"Q","target":30,"actual":1,"gap":-29,"pct":0.0333333333333333}]
+};
+let trendChartInstance = null;
+if(typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined'){ Chart.register(ChartDataLabels); }
+
+/* ================= MANUAL ENTRY DATA (SIM / New Post / FBB / Care+) ================= */
+const MANUAL_METRICS = [
+  {key:'sim', label:'SIM'}, {key:'newpost', label:'New Post'},
+  {key:'fbb', label:'FBB'}, {key:'careplus', label:'Care+'}
+];
+let manualState = {
+  sim:{target:500, entries:[]}, newpost:{target:60, entries:[]},
+  fbb:{target:40, entries:[]}, careplus:{target:20, entries:[]}
+};
+let activeManualTab = 'sim';
+
+async function loadManualState(){
+  if(isGasConfigured()){
+    try{
+      const res = await jsonpRequest(GAS_WEB_APP_URL, {action:'getAll'});
+      if(res && res.entries && res.targets){
+        MANUAL_METRICS.forEach(m=>{
+          manualState[m.key] = { target: res.targets[m.key] || 0, entries: res.entries[m.key] || [] };
+        });
+        return;
+      }
+    }catch(err){
+      console.error('GAS load failed', err);
+      showToast('โหลดข้อมูลจาก Google Sheet ไม่สำเร็จ — ใช้ข้อมูลในเครื่องแทนชั่วคราว');
+    }
+  }
+  for(const m of MANUAL_METRICS){
+    const raw = await storageGet('manual:'+m.key);
+    if(raw){ try{ manualState[m.key] = JSON.parse(raw); }catch(e){} }
+  }
+}
+async function saveManualMetric(key){ await storageSet('manual:'+key, JSON.stringify(manualState[key])); }
+function manualSum(key){
+  const entries = manualState[key].entries || [];
+  return entries.reduce((acc,e)=>({rev:acc.rev+(Number(e.rev)||0), unit:acc.unit+(Number(e.unit)||0)}), {rev:0, unit:0});
+}
+
+/* ================= MANUAL ENTRY MODAL UI ================= */
+function openManualModal(){
+  document.getElementById('manualModal').classList.add('show');
+  renderManualTabs();
+  selectManualTab(activeManualTab);
+}
+function closeManualModal(){ document.getElementById('manualModal').classList.remove('show'); renderAll(); }
+function renderManualTabs(){
+  document.getElementById('manualTabs').innerHTML = MANUAL_METRICS.map(m =>
+    `<button class="tab-btn ${m.key===activeManualTab?'active':''}" onclick="selectManualTab('${m.key}')">${m.label}</button>`
+  ).join('');
+}
+function selectManualTab(key){
+  activeManualTab = key;
+  renderManualTabs();
+  document.getElementById('targetInput').value = manualState[key].target || 0;
+  document.getElementById('targetNote').textContent = key==='careplus' ? '(Unit เป้าหมาย Care+ ต่อเดือน)' : '(Unit เป้าหมายต่อเดือน)';
+  document.getElementById('entryDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('entryRev').value = '';
+  document.getElementById('entryUnit').value = '';
+  renderEntriesTable();
+}
+function renderEntriesTable(){
+  const key = activeManualTab;
+  const entries = (manualState[key].entries||[]).slice().sort((a,b)=> a.date < b.date ? 1 : -1);
+  document.getElementById('entriesTable').innerHTML = `
+    <tr><th>วันที่</th><th class="num">Rev (THB)</th><th class="num">Unit</th><th></th></tr>
+    ${entries.map((e)=>{
+      const realIdx = manualState[key].entries.indexOf(e);
+      return `<tr><td>${e.date}</td><td class="num">${Number(e.rev||0).toLocaleString('en-US')}</td><td class="num">${e.unit}</td>
+      <td class="num"><button class="del-btn" onclick="deleteEntry('${key}',${realIdx})">ลบ</button></td></tr>`;
+    }).join('') || '<tr><td colspan="4" class="muted" style="text-align:center;">ยังไม่มีรายการ</td></tr>'}
+  `;
+  const sum = manualSum(key);
+  const target = manualState[key].target || 0;
+  const pct = target>0 ? (sum.unit/target*100).toFixed(1) : '0.0';
+  document.getElementById('entrySummary').innerHTML = `
+    <span>Actual สะสม (Unit): <b>${sum.unit.toLocaleString('en-US')}</b> / Target ${target.toLocaleString('en-US')}</span>
+    <span>Rev สะสม: <b>${sum.rev.toLocaleString('en-US')}</b> THB</span>
+    <span>%Achieve: <b>${pct}%</b></span>
+  `;
+}
+async function addEntry(){
+  const key = activeManualTab;
+  const date = document.getElementById('entryDate').value;
+  const rev = Number(document.getElementById('entryRev').value)||0;
+  const unit = Number(document.getElementById('entryUnit').value)||0;
+  if(!date){ showToast('กรุณาเลือกวันที่'); return; }
+  if(rev===0 && unit===0){ showToast('กรุณากรอก Rev หรือ Unit อย่างน้อย 1 ช่อง'); return; }
+  if(isGasConfigured()){
+    try{
+      const res = await jsonpRequest(GAS_WEB_APP_URL, {action:'addEntry', metric:key, date, rev, unit});
+      if(res && res.success){
+        manualState[key].entries.push({id:res.id, date, rev, unit});
+      } else { throw new Error((res&&res.error)||'บันทึกไม่สำเร็จ'); }
+    }catch(err){ showToast('บันทึกลง Google Sheet ไม่สำเร็จ: ' + err.message); return; }
+  } else {
+    manualState[key].entries.push({date, rev, unit});
+    await saveManualMetric(key);
+  }
+  document.getElementById('entryRev').value = '';
+  document.getElementById('entryUnit').value = '';
+  renderEntriesTable();
+  showToast('บันทึกรายการแล้ว ✓');
+}
+async function deleteEntry(key, idx){
+  const entry = manualState[key].entries[idx];
+  if(isGasConfigured() && entry && entry.id){
+    try{
+      const res = await jsonpRequest(GAS_WEB_APP_URL, {action:'deleteEntry', metric:key, id:entry.id});
+      if(!res || !res.success) throw new Error((res&&res.error)||'ลบไม่สำเร็จ');
+    }catch(err){ showToast('ลบใน Google Sheet ไม่สำเร็จ: ' + err.message); return; }
+  }
+  manualState[key].entries.splice(idx,1);
+  if(!isGasConfigured()){ await saveManualMetric(key); }
+  renderEntriesTable();
+}
+async function updateTarget(){
+  const key = activeManualTab;
+  const target = Number(document.getElementById('targetInput').value)||0;
+  if(isGasConfigured()){
+    try{
+      const res = await jsonpRequest(GAS_WEB_APP_URL, {action:'setTarget', metric:key, target});
+      if(!res || !res.success) throw new Error((res&&res.error)||'อัปเดตไม่สำเร็จ');
+    }catch(err){ showToast('อัปเดต Target ใน Google Sheet ไม่สำเร็จ: ' + err.message); return; }
+  }
+  manualState[key].target = target;
+  if(!isGasConfigured()){ await saveManualMetric(key); }
+  renderEntriesTable();
+  showToast('อัปเดต Target แล้ว ✓');
+}
+
+/* ================= FORMAT HELPERS ================= */
+const fmt0 = n => Math.round(n||0).toLocaleString('en-US');
+const fmtPct = n => ((n||0)*100).toFixed(1) + '%';
+const fmtCompact = n => {
+  n = n||0;
+  if(Math.abs(n) >= 1000000) return (n/1000000).toFixed(1)+'M';
+  if(Math.abs(n) >= 1000) return (n/1000).toFixed(0)+'K';
+  return String(Math.round(n));
+};
+
+/* ================= EXCEL IMPORT ================= */
+function handleFile(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      const calc = wb.Sheets['Calc'];
+      const setting = wb.Sheets['Setting'];
+      if(!calc || !setting){ showToast('ไม่พบชีท Calc/Setting — ตรวจสอบว่าเป็นไฟล์ AIS_Sales_Dashboard.xlsx'); return; }
+      const v = (ws, addr) => (ws[addr] && ws[addr].v !== undefined && ws[addr].v !== '') ? ws[addr].v : null;
+
+      const d = {};
+      d.report_month = v(setting,'D4') || '—';
+      d.store = v(setting,'D5') || 'All';
+      d.target_rev = v(calc,'C38') || 0;
+      d.actual_rev = v(calc,'C39') || 0;
+      d.device_rev = v(calc,'C40') || 0;
+      d.accessory_rev = v(calc,'C41') || 0;
+      d.pct_achieve_rev = v(calc,'C44') || 0;
+      d.target_units = v(calc,'C45') || 0;
+      d.actual_units = v(calc,'C46') || 0;
+      d.device_units = v(calc,'C47') || 0;
+      d.accessory_units = v(calc,'C48') || 0;
+      d.rev_today = v(calc,'C51') || 0;
+      d.gap_rev = d.actual_rev - d.target_rev;
+
+      d.trend = [];
+      for(let r=4; r<=34; r++){
+        const dateCell = calc['C'+r];
+        const totalVal = v(calc,'H'+r);
+        const deviceVal = v(calc,'D'+r);
+        const accessoryVal = v(calc,'E'+r);
+        if(dateCell && dateCell.v !== undefined && dateCell.v !== ''){
+          let label = dateCell.w || String(dateCell.v);
+          if(dateCell.t === 'n' && window.XLSX && XLSX.SSF){
+            const jsDate = XLSX.SSF.parse_date_code(dateCell.v);
+            if(jsDate) label = String(jsDate.d).padStart(2,'0') + '/' + String(jsDate.m).padStart(2,'0');
+          }
+          d.trend.push({day:r-3, date:label, total: totalVal||0, device: deviceVal||0, accessory: accessoryVal||0});
+        }
+      }
+      if(d.trend.length === 0){
+        for(let r=4; r<=34; r++){
+          const totalVal = v(calc,'H'+r);
+          if(totalVal !== null){ d.trend.push({day:r-3, date:'Day '+(r-3), total: totalVal, device: v(calc,'D'+r)||0, accessory: v(calc,'E'+r)||0}); }
+        }
+      }
+
+      const readBrandBlock = (startRow, endRow, cols) => {
+        const out = [];
+        for(let r=startRow; r<=endRow; r++){
+          const brand = v(calc, cols.brand+r);
+          if(brand){ out.push({brand, rev: v(calc,cols.rev+r)||0, units: v(calc,cols.units+r)||0, pct: v(calc,cols.pct+r)||0}); }
+        }
+        return out.sort((a,b)=>b.rev-a.rev);
+      };
+      d.device_brand = readBrandBlock(104,115,{brand:'B',rev:'C',units:'D',pct:'E'});
+      d.accessory_brand = readBrandBlock(104,115,{brand:'G',rev:'H',units:'I',pct:'J'});
+
+      const readTopBlock = (startRow, endRow, cols) => {
+        const out = []; let rank=1;
+        for(let r=startRow; r<=endRow; r++){
+          const brand = v(calc, cols.brand+r);
+          if(brand){ out.push({rank, brand, model: v(calc,cols.model+r), rev: v(calc,cols.rev+r)||0, units: v(calc,cols.units+r)||0}); rank++; }
+        }
+        return out;
+      };
+      d.device_top = readTopBlock(121,130,{brand:'C',model:'D',rev:'E',units:'F'});
+      d.accessory_top = readTopBlock(121,130,{brand:'I',model:'J',rev:'K',units:'L'});
+
+      const svcNames = ['CSI','Q'];
+      const svcRows = [138,139];
+      d.service = svcRows.map((r,i)=>({
+        metric:svcNames[i], target:v(calc,'C'+r)||0, actual:v(calc,'D'+r)||0, gap:v(calc,'E'+r)||0, pct:v(calc,'F'+r)||0
+      }));
+
+      DATA = d;
+      document.getElementById('dataSource').textContent = file.name;
+      document.getElementById('lastUpdate').textContent = new Date().toLocaleString('th-TH');
+      renderAll();
+      showToast('นำเข้าข้อมูลสำเร็จ ✓');
+    }catch(err){
+      console.error(err);
+      showToast('อ่านไฟล์ไม่สำเร็จ: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ================= INIT ================= */
+async function initApp(){
+  renderStorageNote();
+  await loadManualState();
+  renderAll();
+}
+
+/* ================= RENDER (each section isolated so one failure never blanks the rest) ================= */
+function renderAll(){
+  try{ renderHeader(); }catch(e){ console.error('renderHeader', e); }
+  try{ renderKpiCards(); }catch(e){ console.error('renderKpiCards', e); }
+  try{ renderServiceTable(); }catch(e){ console.error('renderServiceTable', e); }
+  try{ renderBrandTables(); }catch(e){ console.error('renderBrandTables', e); }
+  try{ renderTopTables(); }catch(e){ console.error('renderTopTables', e); }
+  try{ renderTrendChart(); }catch(e){ console.error('renderTrendChart', e); showToast('กราฟโหลดไม่สำเร็จ — ข้อมูลส่วนอื่นยังแสดงปกติ'); }
+}
+
+function renderHeader(){
+  document.getElementById('topSubtitle').textContent = `Report Month ${DATA.report_month}   |   Store: ${DATA.store}`;
+}
+
+function renderKpiCards(){
+  const carePlusSum = manualSum('careplus');
+  const deviceUnits = DATA.device_units || 0;
+  const careAtr = deviceUnits > 0 ? carePlusSum.unit / deviceUnits : 0;
+  const cards = [
+    {label:'TARGET REV (THB)', value: fmt0(DATA.target_rev), cls:''},
+    {label:'ACTUAL REV (THB)', value: fmt0(DATA.actual_rev), cls:'green'},
+    {label:'GAP (Actual-Target)', value: fmt0(DATA.gap_rev), cls: DATA.gap_rev<0?'red':'green'},
+    {label:'% ACHIEVE TARGET', value: fmtPct(DATA.pct_achieve_rev), cls: DATA.pct_achieve_rev<1?'red':'green'},
+    {label:'DEVICE UNITS (MTD)', value: fmt0(DATA.device_units), cls:'green'},
+    {label:'ACCESSORY UNITS (MTD)', value: fmt0(DATA.accessory_units), cls:'green'},
+    {label:'REV % DEV / ACC', value: `${fmtPct(DATA.device_rev/(DATA.actual_rev||1))} / ${fmtPct(DATA.accessory_rev/(DATA.actual_rev||1))}`, cls:''},
+    {label:'CARE+ %ATR (MTD)', value: fmtPct(careAtr), cls: 'amber', sub:`Rev ${fmt0(carePlusSum.rev)}  •  ${fmt0(carePlusSum.unit)}/${fmt0(deviceUnits)} Unit`}
+  ];
+  document.getElementById('kpiCards').innerHTML = cards.map(c => `
+    <div class="kpi-card ${c.cls==='amber'?'amber':''}">
+      <div class="label">${c.label}</div>
+      <div class="value ${c.cls}">${c.value}</div>
+      ${c.sub ? `<div class="subvalue">${c.sub}</div>` : ''}
+    </div>`).join('');
+}
+
+function renderTrendChart(){
+  const canvas = document.getElementById('trendChart');
+  if(!canvas) return;
+  if(typeof Chart === 'undefined'){ throw new Error('Chart.js library not loaded'); }
+  const ctx = canvas.getContext('2d');
+  if(trendChartInstance){ trendChartInstance.destroy(); trendChartInstance = null; }
+  const hasDataLabels = typeof ChartDataLabels !== 'undefined';
+  trendChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DATA.trend.map(t=>t.date),
+      datasets: [
+        { label:'Device', data: DATA.trend.map(t=>t.device||0), backgroundColor:'#0A5C36', stack:'rev' },
+        { label:'Accessory', data: DATA.trend.map(t=>t.accessory||0), backgroundColor:'#8DC63F', stack:'rev' }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:true, position:'top', labels:{ boxWidth:10, font:{size:9} } },
+        datalabels: hasDataLabels ? {
+          display: (ctx)=> ctx.dataset.data[ctx.dataIndex] > 0,
+          color: (ctx)=> ctx.datasetIndex===0 ? '#fff' : '#073F25',
+          font:{size:8, weight:'700'},
+          formatter: (val)=> fmtCompact(val)
+        } : undefined
+      },
+      scales:{
+        y:{ beginAtZero:true, stacked:true, grid:{color:'#EEEEEE'}, ticks:{font:{size:8}, callback:(v)=>fmtCompact(v)} },
+        x:{ stacked:true, grid:{display:false}, ticks:{font:{size:8}} }
+      }
+    }
+  });
+}
+
+function rankBadge(i){
+  const cls = i===0?'r1':i===1?'r2':i===2?'r3':'r0';
+  const label = i<3 ? (i+1) : (i+1);
+  return `<span class="rank-badge ${cls}">${label}</span>`;
+}
+function rankRowClass(i){ return i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''; }
+
+function renderServiceTable(){
+  const manualRows = MANUAL_METRICS.filter(m=>m.key!=='careplus').map(m=>{
+    const sum = manualSum(m.key);
+    const target = manualState[m.key].target || 0;
+    const gap = sum.unit - target;
+    const pct = target>0 ? sum.unit/target : 0;
+    return {metric:m.label, target, actual:sum.unit, rev:sum.rev, gap, pct, manual:true};
+  });
+  const excelRows = (DATA.service||[]).map(s=>({...s, rev:null, manual:false}));
+  const allRows = [...manualRows, ...excelRows];
+  document.getElementById('serviceTable').innerHTML = `
+    <tr><th>Metric</th><th class="num">Target</th><th class="num">Actual</th><th class="num">Rev</th><th class="num">Gap</th><th class="num">%Ach</th></tr>
+    ${allRows.map(s=>`
+      <tr>
+        <td><b>${s.metric}</b>${s.manual?'<span class="muted" style="font-size:8.5px;"> (manual)</span>':''}</td>
+        <td class="num">${fmt0(s.target)}</td>
+        <td class="num">${fmt0(s.actual)}</td>
+        <td class="num">${s.rev===null ? '<span class="muted">—</span>' : fmt0(s.rev)}</td>
+        <td class="num ${s.gap<0?'neg':'pos'}">${fmt0(s.gap)}</td>
+        <td class="num ${s.pct<1?'neg':'pos'}">${fmtPct(s.pct)}</td>
+      </tr>`).join('')}
+  `;
+}
+
+function renderBrandTables(){
+  const brandRows = (arr) => {
+    const list = (arr||[]).slice(0,6);
+    const maxPct = Math.max(...list.map(r=>r.pct||0), 0.0001);
+    return list.map((r,i)=>`
+      <tr class="${rankRowClass(i)}">
+        <td>${rankBadge(i)}${r.brand}</td>
+        <td class="num">${fmt0(r.rev)}</td>
+        <td class="num">${r.units}</td>
+        <td class="num">${fmtPct(r.pct)}<div class="share-bar-wrap"><div class="share-bar" style="width:${Math.max(4,(r.pct/maxPct*100)).toFixed(0)}%"></div></div></td>
+      </tr>`).join('');
+  };
+  document.getElementById('deviceBrandTable').innerHTML = `<tr><th class="lime">Brand</th><th class="lime num">Rev</th><th class="lime num">Units</th><th class="lime num">%</th></tr>${brandRows(DATA.device_brand)}`;
+  document.getElementById('accessoryBrandTable').innerHTML = `<tr><th class="lime">Brand</th><th class="lime num">Rev</th><th class="lime num">Units</th><th class="lime num">%</th></tr>${brandRows(DATA.accessory_brand)}`;
+}
+
+function renderTopTables(){
+  const topRows = (arr) => (arr||[]).slice(0,5).map((r,i)=>`
+    <tr class="${rankRowClass(i)}"><td>${rankBadge(i)}</td><td>${r.brand}</td><td>${r.model}</td><td class="num">${fmt0(r.rev)}</td></tr>
+  `).join('');
+  document.getElementById('deviceTopTable').innerHTML = `<tr><th class="lime">#</th><th class="lime">Brand</th><th class="lime">Model</th><th class="lime num">Rev</th></tr>${topRows(DATA.device_top)}`;
+  document.getElementById('accessoryTopTable').innerHTML = `<tr><th class="lime">#</th><th class="lime">Brand</th><th class="lime">Model</th><th class="lime num">Rev</th></tr>${topRows(DATA.accessory_top)}`;
+}
+
+/* ================= PPTX EXPORT (minimal native OOXML, image-based one-pager) ================= */
+async function exportPptx(){
+  showToast('กำลังสร้างไฟล์ PowerPoint...');
+  const target = document.getElementById('dashboard-capture');
+  const canvas = await html2canvas(target, {scale:2, backgroundColor:'#ffffff'});
+  const pngDataUrl = canvas.toDataURL('image/png');
+  const base64 = pngDataUrl.split(',')[1];
+  const blob = await buildImagePptx(base64, canvas.width, canvas.height);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `AIS_Sales_OnePager_${DATA.report_month.replace('/','')}.pptx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('ดาวน์โหลด PowerPoint สำเร็จ ✓');
+}
+
+async function buildImagePptx(base64Png, imgWpx, imgHpx){
+  const zip = new JSZip();
+  const SLIDE_CX = 12192000, SLIDE_CY = 6858000;
+  const imgAspect = imgWpx / imgHpx;
+  const slideAspect = SLIDE_CX / SLIDE_CY;
+  let cx, cy;
+  if(imgAspect > slideAspect){ cx = SLIDE_CX; cy = Math.round(SLIDE_CX / imgAspect); }
+  else { cy = SLIDE_CY; cx = Math.round(SLIDE_CY * imgAspect); }
+  const offX = Math.round((SLIDE_CX - cx)/2), offY = Math.round((SLIDE_CY - cy)/2);
+
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Default Extension="png" ContentType="image/png"/>
+<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
+<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
+<Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`);
+
+  zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`);
+
+  zip.folder('docProps').file('core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<dc:title>AIS Sales One-Pager</dc:title>
+<dc:creator>AIS Shop Area South</dc:creator>
+<cp:lastModifiedBy>AIS Shop Area South</cp:lastModifiedBy>
+</cp:coreProperties>`);
+
+  zip.folder('docProps').file('app.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+<Application>AIS Dashboard Web</Application>
+<Slides>1</Slides>
+</Properties>`);
+
+  zip.folder('ppt').file('presentation.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>
+<p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst>
+<p:sldSz cx="${SLIDE_CX}" cy="${SLIDE_CY}" type="screen16x9"/>
+<p:notesSz cx="6858000" cy="9144000"/>
+</p:presentation>`);
+
+  zip.folder('ppt/_rels').file('presentation.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
+</Relationships>`);
+
+  zip.folder('ppt/slideMasters').file('slideMaster1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:cSld><p:spTree>
+<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+<p:grpSpPr/>
+</p:spTree></p:cSld>
+<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>
+<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>
+</p:sldMaster>`);
+
+  zip.folder('ppt/slideMasters/_rels').file('slideMaster1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/>
+</Relationships>`);
+
+  zip.folder('ppt/slideLayouts').file('slideLayout1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank" preserve="1">
+<p:cSld name="Blank"><p:spTree>
+<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+<p:grpSpPr/>
+</p:spTree></p:cSld>
+<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
+</p:sldLayout>`);
+
+  zip.folder('ppt/slideLayouts/_rels').file('slideLayout1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
+</Relationships>`);
+
+  zip.folder('ppt/theme').file('theme1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="AIS Theme">
+<a:themeElements>
+<a:clrScheme name="AIS">
+<a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1>
+<a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1>
+<a:dk2><a:srgbClr val="0A5C36"/></a:dk2>
+<a:lt2><a:srgbClr val="EAF7EF"/></a:lt2>
+<a:accent1><a:srgbClr val="0A5C36"/></a:accent1>
+<a:accent2><a:srgbClr val="8DC63F"/></a:accent2>
+<a:accent3><a:srgbClr val="1B1B1B"/></a:accent3>
+<a:accent4><a:srgbClr val="6B7280"/></a:accent4>
+<a:accent5><a:srgbClr val="C0392B"/></a:accent5>
+<a:accent6><a:srgbClr val="EAF7EF"/></a:accent6>
+<a:hlink><a:srgbClr val="0A5C36"/></a:hlink>
+<a:folHlink><a:srgbClr val="8DC63F"/></a:folHlink>
+</a:clrScheme>
+<a:fontScheme name="AIS">
+<a:majorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>
+<a:minorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont>
+</a:fontScheme>
+<a:fmtScheme name="AIS">
+<a:fillStyleLst>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+</a:fillStyleLst>
+<a:lnStyleLst>
+<a:ln w="6350"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+<a:ln w="12700"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+<a:ln w="19050"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+</a:lnStyleLst>
+<a:effectStyleLst>
+<a:effectStyle><a:effectLst/></a:effectStyle>
+<a:effectStyle><a:effectLst/></a:effectStyle>
+<a:effectStyle><a:effectLst/></a:effectStyle>
+</a:effectStyleLst>
+<a:bgFillStyleLst>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+</a:bgFillStyleLst>
+</a:fmtScheme>
+</a:themeElements>
+</a:theme>`);
+
+  zip.folder('ppt/media').file('image1.png', base64Png, {base64:true});
+
+  zip.folder('ppt/slides').file('slide1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:cSld><p:spTree>
+<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+<p:grpSpPr/>
+<p:pic>
+<p:nvPicPr><p:cNvPr id="2" name="Dashboard"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>
+<p:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+<p:spPr><a:xfrm><a:off x="${offX}" y="${offY}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
+</p:pic>
+</p:spTree></p:cSld>
+<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
+</p:sld>`);
+
+  zip.folder('ppt/slides/_rels').file('slide1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>
+</Relationships>`);
+
+  return zip.generateAsync({type:'blob', compression:'DEFLATE'});
+}
+</script>
+</body>
+</html>
